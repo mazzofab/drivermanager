@@ -4,9 +4,9 @@
     <name>Driver Manager</name>
     <summary>Manage driver information and license expiry notifications</summary>
     <description>A comprehensive app to manage driver information including license expiry tracking with automatic notifications</description>
-    <version>1.0.1</version>
+    <version>1.0.3</version>
     <licence>AGPL</licence>
-    <author>Your Name</author>
+    <author>Fabrizio Mazzoni</author>
     <namespace>DriverManager</namespace>
     <category>tools</category>
     <dependencies>
