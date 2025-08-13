@@ -7,15 +7,18 @@ use OCP\AppFramework\Http\DataResponse;
 use OCP\AppFramework\Controller;
 use OCA\DriverManager\Db\Driver;
 use OCA\DriverManager\Db\DriverMapper;
-use OCP\IUserSession;
+use OCP\IDBConnection;
 
 class DriverController extends Controller {
     private $mapper;
     private $userId;
 
-    public function __construct($AppName, IRequest $request, DriverMapper $mapper, IUserSession $userSession) {
+    public function __construct($AppName, IRequest $request, IDBConnection $db) {
         parent::__construct($AppName, $request);
-        $this->mapper = $mapper;
+        $this->mapper = new DriverMapper($db);
+        
+        // Get current user
+        $userSession = \OC::$server->getUserSession();
         $user = $userSession->getUser();
         $this->userId = $user ? $user->getUID() : null;
     }
@@ -65,8 +68,8 @@ class DriverController extends Controller {
             $driver->setUpdatedAt(new DateTime());
             
             return new DataResponse($this->mapper->update($driver));
-        } catch(Exception $e) {
-            return new DataResponse([], 404);
+        } catch(\Exception $e) {
+            return new DataResponse(['error' => $e->getMessage()], 404);
         }
     }
 
@@ -79,8 +82,8 @@ class DriverController extends Controller {
             $driver = $this->mapper->find($id);
             $this->mapper->delete($driver);
             return new DataResponse($driver);
-        } catch(Exception $e) {
-            return new DataResponse([], 404);
+        } catch(\Exception $e) {
+            return new DataResponse(['error' => $e->getMessage()], 404);
         }
     }
 }

@@ -9,6 +9,3 @@
         'name' => 'Driver Manager',
     ];
 });
-
-// Instantiate the application to register services
-$app = new \OCA\DriverManager\AppInfo\Application();
