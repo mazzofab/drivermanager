@@ -7,15 +7,17 @@ use OCP\AppFramework\Http\DataResponse;
 use OCP\AppFramework\Controller;
 use OCA\DriverManager\Db\Driver;
 use OCA\DriverManager\Db\DriverMapper;
+use OCP\IUserSession;
 
 class DriverController extends Controller {
     private $mapper;
     private $userId;
 
-    public function __construct($AppName, IRequest $request, DriverMapper $mapper, $UserId) {
+    public function __construct($AppName, IRequest $request, DriverMapper $mapper, IUserSession $userSession) {
         parent::__construct($AppName, $request);
         $this->mapper = $mapper;
-        $this->userId = $UserId;
+        $user = $userSession->getUser();
+        $this->userId = $user ? $user->getUID() : null;
     }
 
     /**

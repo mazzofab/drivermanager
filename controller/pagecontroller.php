@@ -4,13 +4,15 @@ namespace OCA\DriverManager\Controller;
 use OCP\IRequest;
 use OCP\AppFramework\Http\TemplateResponse;
 use OCP\AppFramework\Controller;
+use OCP\IUserSession;
 
 class PageController extends Controller {
     private $userId;
 
-    public function __construct($AppName, IRequest $request, $UserId){
+    public function __construct($AppName, IRequest $request, IUserSession $userSession){
         parent::__construct($AppName, $request);
-        $this->userId = $UserId;
+        $user = $userSession->getUser();
+        $this->userId = $user ? $user->getUID() : null;
     }
 
     /**
