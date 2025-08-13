@@ -15,9 +15,7 @@ class Driver extends Entity implements JsonSerializable {
 
     public function __construct() {
         $this->addType('id', 'integer');
-        $this->addType('createdAt', 'datetime');
-        $this->addType('updatedAt', 'datetime');
-        $this->addType('licenseExpiry', 'date');
+        // Remove datetime/date types as they cause issues in ownCloud 10.15.3
     }
 
     public function jsonSerialize() {

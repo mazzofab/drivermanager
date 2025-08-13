@@ -44,8 +44,11 @@ class DriverController extends Controller {
         $driver->setLicenseNumber($licenseNumber);
         $driver->setLicenseExpiry($licenseExpiry);
         $driver->setUserId($this->userId);
-        $driver->setCreatedAt(new DateTime());
-        $driver->setUpdatedAt(new DateTime());
+        
+        // Convert DateTime to string format for ownCloud 10.15.3 compatibility
+        $now = new DateTime();
+        $driver->setCreatedAt($now->format('Y-m-d H:i:s'));
+        $driver->setUpdatedAt($now->format('Y-m-d H:i:s'));
         
         return new DataResponse($this->mapper->insert($driver));
     }
@@ -65,7 +68,10 @@ class DriverController extends Controller {
             $driver->setSurname($surname);
             $driver->setLicenseNumber($licenseNumber);
             $driver->setLicenseExpiry($licenseExpiry);
-            $driver->setUpdatedAt(new DateTime());
+            
+            // Convert DateTime to string format for ownCloud 10.15.3 compatibility
+            $now = new DateTime();
+            $driver->setUpdatedAt($now->format('Y-m-d H:i:s'));
             
             return new DataResponse($this->mapper->update($driver));
         } catch(\Exception $e) {
