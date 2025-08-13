@@ -1,7 +1,5 @@
 # ownCloud Driver Manager App
 
-A comprehensive ownCloud application for managing driver information and tracking license expiry dates with automatic notifications.
-
 ## Features
 
 - Complete driver information management (Name, Surname, License Number, Expiry Date)
@@ -14,18 +12,11 @@ A comprehensive ownCloud application for managing driver information and trackin
 
 ## Installation
 
-1. Extract this ZIP file to your ownCloud apps directory:
-   `/path/to/owncloud/apps/`
-
-2. Set proper permissions:
-   `chown -R www-data:www-data /path/to/owncloud/apps/drivermanager`
-
+1. Extract this ZIP file to your ownCloud apps directory: `/path/to/owncloud/apps/`
+2. Set proper permissions: `chown -R www-data:www-data /path/to/owncloud/apps/drivermanager`
 3. Enable the app in ownCloud Admin → Apps → "Driver Manager"
-
 4. Configure email settings in ownCloud Admin → Additional → Email server
-
-5. Customize notification recipients by editing email addresses in:
-   `lib/backgroundjob/expirynotification.php`
+5. Customize notification recipients by editing email addresses in: `lib/backgroundjob/expirynotification.php`
 
 ## Configuration
 
@@ -33,15 +24,8 @@ A comprehensive ownCloud application for managing driver information and trackin
 Edit the following file to configure who receives notifications:
 `lib/backgroundjob/expirynotification.php`
 
-Look for these lines and update the email addresses:
-```php
-->setFrom(['noreply@yourcompany.com' => 'Driver Manager'])
-->setTo(['admin@yourcompany.com']) // Configure recipient list
-```
-
 ### Notification Intervals
-The app checks for expiring licenses at 30, 7, and 1 day intervals. To modify these intervals, edit the `$checkDays` array in:
-`lib/backgroundjob/expirynotification.php`
+The app checks for expiring licenses at 30, 7, and 1 day intervals.
 
 ## Requirements
 
@@ -49,10 +33,6 @@ The app checks for expiring licenses at 30, 7, and 1 day intervals. To modify th
 - PHP 7.4 or higher
 - Configured email server for notifications
 - Background jobs enabled
-
-## Support
-
-For issues or questions, please refer to the ownCloud documentation or contact your system administrator.
 
 ## License
 

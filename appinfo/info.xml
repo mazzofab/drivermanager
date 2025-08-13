@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <info>
     <id>drivermanager</id>
-    <name>Driver Manager</name>
+    <n>Driver Manager</n>
     <summary>Manage driver information and license expiry notifications</summary>
     <description>A comprehensive app to manage driver information including license expiry tracking with automatic notifications</description>
     <version>1.0.0</version>
@@ -10,13 +10,12 @@
     <namespace>DriverManager</namespace>
     <category>tools</category>
     <dependencies>
-        <owncloud min-version="10.15" max-version="10.15" />
+        <owncloud min-version="10.0" max-version="10.15" />
     </dependencies>
     <background-jobs>
         <job>OCA\DriverManager\BackgroundJob\ExpiryNotification</job>
     </background-jobs>
     <types>
         <logging/>
-        <notification/>
     </types>
 </info>

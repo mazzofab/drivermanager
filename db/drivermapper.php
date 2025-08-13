@@ -1,57 +1,53 @@
 <?php
 namespace OCA\DriverManager\Db;
 
-use OCP\AppFramework\Db\QBMapper;
-use OCP\DB\QueryBuilder\IQueryBuilder;
+use OCP\AppFramework\Db\Mapper;
 use OCP\IDBConnection;
 
-class DriverMapper extends QBMapper {
+class DriverMapper extends Mapper {
     public function __construct(IDBConnection $db) {
         parent::__construct($db, 'drivermanager_drivers', Driver::class);
     }
 
     public function findAll($limit = null, $offset = null) {
-        $qb = $this->db->getQueryBuilder();
-        $qb->select('*')
-           ->from($this->getTableName())
-           ->orderBy('surname', 'ASC');
-           
+        $sql = 'SELECT * FROM `' . $this->tableName . '` ORDER BY surname ASC';
+        $params = [];
+        
         if ($limit !== null) {
-            $qb->setMaxResults($limit);
+            $sql .= ' LIMIT ?';
+            $params[] = $limit;
         }
         if ($offset !== null) {
-            $qb->setFirstResult($offset);
+            $sql .= ' OFFSET ?';
+            $params[] = $offset;
         }
         
-        return $this->findEntities($qb);
+        return $this->findEntities($sql, $params);
     }
 
-    public function findByUserId(string $userId, $limit = null, $offset = null) {
-        $qb = $this->db->getQueryBuilder();
-        $qb->select('*')
-           ->from($this->getTableName())
-           ->where($qb->expr()->eq('user_id', $qb->createNamedParameter($userId)))
-           ->orderBy('surname', 'ASC');
-           
+    public function findByUserId($userId, $limit = null, $offset = null) {
+        $sql = 'SELECT * FROM `' . $this->tableName . '` WHERE user_id = ? ORDER BY surname ASC';
+        $params = [$userId];
+        
         if ($limit !== null) {
-            $qb->setMaxResults($limit);
+            $sql .= ' LIMIT ?';
+            $params[] = $limit;
         }
         if ($offset !== null) {
-            $qb->setFirstResult($offset);
+            $sql .= ' OFFSET ?';
+            $params[] = $offset;
         }
         
-        return $this->findEntities($qb);
+        return $this->findEntities($sql, $params);
     }
 
     public function findExpiringDrivers($days) {
-        $qb = $this->db->getQueryBuilder();
         $targetDate = new \DateTime();
         $targetDate->add(new \DateInterval('P' . $days . 'D'));
         
-        $qb->select('*')
-           ->from($this->getTableName())
-           ->where($qb->expr()->eq('license_expiry', $qb->createNamedParameter($targetDate->format('Y-m-d'))));
-           
-        return $this->findEntities($qb);
+        $sql = 'SELECT * FROM `' . $this->tableName . '` WHERE license_expiry = ?';
+        $params = [$targetDate->format('Y-m-d')];
+        
+        return $this->findEntities($sql, $params);
     }
 }
