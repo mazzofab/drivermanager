@@ -1,5 +1,5 @@
 <?php
-// Register the app
+// Register the app in navigation
 \OC::$server->getNavigationManager()->add(function () {
     return [
         'id' => 'drivermanager',
@@ -9,3 +9,6 @@
         'name' => 'Driver Manager',
     ];
 });
+
+// Instantiate the application to register services
+$app = new \OCA\DriverManager\AppInfo\Application();
