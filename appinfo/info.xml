@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <info>
     <id>drivermanager</id>
-    <n>Driver Manager</n>
+    <name>Driver Manager</name>
     <summary>Manage driver information and license expiry notifications</summary>
     <description>A comprehensive app to manage driver information including license expiry tracking with automatic notifications</description>
     <version>1.0.1</version>
