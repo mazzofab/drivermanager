@@ -9,6 +9,11 @@ class DriverMapper extends Mapper {
         parent::__construct($db, 'drivermanager_drivers', Driver::class);
     }
 
+    public function find($id) {
+        $sql = 'SELECT * FROM `' . $this->tableName . '` WHERE `id` = ?';
+        return $this->findEntity($sql, [$id]);
+    }
+
     public function findAll($limit = null, $offset = null) {
         $sql = 'SELECT * FROM `' . $this->tableName . '` ORDER BY surname ASC';
         $params = [];

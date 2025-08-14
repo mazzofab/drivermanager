@@ -35,7 +35,6 @@
                 $('#surname').val(driver.surname);
                 $('#license-number').val(driver.licenseNumber);
                 $('#license-expiry').val(driver.licenseExpiry);
-                console.log('Loading driver data:', driver); // Debug line
             } else {
                 $('#form-title').text('Add New Driver');
                 $('#driver-form-element')[0].reset();
@@ -56,12 +55,11 @@
                 self.renderDrivers();
             }).fail(function(xhr, status, error) {
                 console.error('Failed to load drivers:', error);
-                OC.Notification.showTemporary('Failed to load drivers');
             });
         },
 
         renderDrivers: function() {
-            var self = this; // Important: Store reference to 'this'
+            var self = this;
             var tbody = $('#drivers-table tbody');
             tbody.empty();
             
@@ -95,28 +93,30 @@
                 tbody.append(row);
             });
             
-            // Fixed: Use proper scope for 'this'
+            // Edit button handler
             $('.edit-btn').off('click').on('click', function() {
                 var driverId = parseInt($(this).data('id'));
-                console.log('Editing driver ID:', driverId); // Debug line
-                
-                // Find the driver in the array
                 var driver = self.drivers.find(function(d) { 
                     return parseInt(d.id) === driverId; 
                 });
                 
-                console.log('Found driver:', driver); // Debug line
-                
                 if (driver) {
                     self.showForm(driver);
                 } else {
-                    console.error('Driver not found with ID:', driverId);
                     OC.Notification.showTemporary('Error: Driver not found');
                 }
             });
             
+            // Delete button handler - FIXED
             $('.delete-btn').off('click').on('click', function() {
-                var driverId = $(this).data('id');
+                var driverId = parseInt($(this).data('id'));
+                
+                if (!driverId || isNaN(driverId)) {
+                    console.error('Invalid driver ID for delete:', $(this).data('id'));
+                    OC.Notification.showTemporary('Error: Invalid driver ID');
+                    return;
+                }
+                
                 if (confirm('Are you sure you want to delete this driver?')) {
                     self.deleteDriver(driverId);
                 }
@@ -145,12 +145,17 @@
                 self.loadDrivers();
                 OC.Notification.showTemporary('Driver saved successfully');
             }).fail(function(xhr, status, error) {
-                console.error('Save failed:', error);
                 OC.Notification.showTemporary('Error saving driver');
             });
         },
 
         deleteDriver: function(id) {
+            if (!id || isNaN(id)) {
+                console.error('Invalid ID passed to deleteDriver:', id);
+                OC.Notification.showTemporary('Error: Invalid driver ID');
+                return;
+            }
+            
             var self = this;
             $.ajax({
                 url: this.baseUrl + '/' + id,
@@ -159,7 +164,6 @@
                 self.loadDrivers();
                 OC.Notification.showTemporary('Driver deleted successfully');
             }).fail(function(xhr, status, error) {
-                console.error('Delete failed:', error);
                 OC.Notification.showTemporary('Error deleting driver');
             });
         }
