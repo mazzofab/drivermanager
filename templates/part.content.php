@@ -22,8 +22,11 @@
                     <input type="text" id="license-number" name="licenseNumber" required>
                 </div>
                 <div class="form-group">
-                    <label for="license-expiry">License Expiry Date:</label>
-                    <input type="date" id="license-expiry" name="licenseExpiry" required>
+                    <label for="license-expiry">License Expiry Date (DD/MM/YYYY):</label>
+                    <input type="text" id="license-expiry" name="licenseExpiry" 
+                           placeholder="DD/MM/YYYY" pattern="\d{2}/\d{2}/\d{4}" 
+                           maxlength="10" required>
+                    <small>Format: DD/MM/YYYY (e.g., 25/12/2025)</small>
                 </div>
                 <div class="form-buttons">
                     <button type="submit" class="button primary">Save</button>

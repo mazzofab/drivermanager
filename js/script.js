@@ -24,7 +24,26 @@
                 self.saveDriver();
             });
             
+            // Add date input formatting
+            $('#license-expiry').on('input', function() {
+                self.formatDateInput(this);
+            });
+            
             this.loadDrivers();
+        },
+
+        // Format date input as user types (DD/MM/YYYY)
+        formatDateInput: function(input) {
+            var value = input.value.replace(/\D/g, ''); // Remove non-digits
+            
+            if (value.length >= 2) {
+                value = value.substring(0, 2) + '/' + value.substring(2);
+            }
+            if (value.length >= 5) {
+                value = value.substring(0, 5) + '/' + value.substring(5, 9);
+            }
+            
+            input.value = value;
         },
 
         // Format date for display as DD/MM/YYYY
@@ -34,27 +53,61 @@
             try {
                 var date = new Date(dateString);
                 var day = String(date.getDate()).padStart(2, '0');
-                var month = String(date.getMonth() + 1).padStart(2, '0'); // +1 because months are 0-indexed
+                var month = String(date.getMonth() + 1).padStart(2, '0');
                 var year = date.getFullYear();
                 
-                return day + '/' + month + '/' + year; // DD/MM/YYYY
+                return day + '/' + month + '/' + year;
             } catch (e) {
                 console.warn('Date formatting error:', e);
-                return dateString; // Fallback to original string
+                return dateString;
             }
         },
 
-        // Convert date from DD/MM/YYYY or any format back to YYYY-MM-DD for form input
-        formatDateForInput: function(dateString) {
-            if (!dateString) return '';
+        // Convert DD/MM/YYYY to YYYY-MM-DD for backend
+        convertToBackendFormat: function(ddmmyyyy) {
+            if (!ddmmyyyy) return '';
             
             try {
-                var date = new Date(dateString);
-                return date.toISOString().split('T')[0]; // Returns YYYY-MM-DD
+                var parts = ddmmyyyy.split('/');
+                if (parts.length !== 3) return '';
+                
+                var day = parts[0].padStart(2, '0');
+                var month = parts[1].padStart(2, '0');
+                var year = parts[2];
+                
+                // Validate the date
+                var date = new Date(year, month - 1, day);
+                if (date.getFullYear() != year || date.getMonth() != month - 1 || date.getDate() != day) {
+                    throw new Error('Invalid date');
+                }
+                
+                return year + '-' + month + '-' + day;
             } catch (e) {
-                console.warn('Date input formatting error:', e);
-                return dateString;
+                console.warn('Date conversion error:', e);
+                return '';
             }
+        },
+
+        // Validate DD/MM/YYYY format
+        isValidDateFormat: function(dateString) {
+            var regex = /^\d{2}\/\d{2}\/\d{4}$/;
+            if (!regex.test(dateString)) return false;
+            
+            var parts = dateString.split('/');
+            var day = parseInt(parts[0], 10);
+            var month = parseInt(parts[1], 10);
+            var year = parseInt(parts[2], 10);
+            
+            // Basic validation
+            if (month < 1 || month > 12) return false;
+            if (day < 1 || day > 31) return false;
+            if (year < 1900 || year > 2100) return false;
+            
+            // Check if date is valid
+            var date = new Date(year, month - 1, day);
+            return date.getFullYear() === year && 
+                   date.getMonth() === month - 1 && 
+                   date.getDate() === day;
         },
 
         // Get status based on days until expiry
@@ -84,14 +137,16 @@
                 $('#name').val(driver.name);
                 $('#surname').val(driver.surname);
                 $('#license-number').val(driver.licenseNumber);
-                // Convert to YYYY-MM-DD format for date input
-                $('#license-expiry').val(this.formatDateForInput(driver.licenseExpiry));
+                // Display date in DD/MM/YYYY format in the form
+                $('#license-expiry').val(this.formatDateForDisplay(driver.licenseExpiry));
             } else {
                 $('#form-title').text('Add New Driver');
                 $('#driver-form-element')[0].reset();
                 $('#driver-id').val('');
             }
             $('#driver-form').show();
+            // Focus on first input
+            $('#name').focus();
         },
 
         hideForm: function() {
@@ -128,7 +183,7 @@
                 row.append($('<td>').text(driver.name));
                 row.append($('<td>').text(driver.surname));
                 row.append($('<td>').text(driver.licenseNumber));
-                row.append($('<td>').text(displayDate)); // DD/MM/YYYY format
+                row.append($('<td>').text(displayDate));
                 row.append($('<td>').html('<span class="status ' + statusInfo.class + '">' + statusInfo.text + '</span>'));
                 row.append($('<td>').html(
                     '<button class="edit-btn" data-id="' + driver.id + '">Edit</button> ' +
@@ -158,16 +213,25 @@
         },
 
         saveDriver: function() {
+            var expiryDate = $('#license-expiry').val();
+            
+            // Validate date format
+            if (!this.isValidDateFormat(expiryDate)) {
+                OC.Notification.showTemporary('Please enter a valid date in DD/MM/YYYY format');
+                $('#license-expiry').focus();
+                return;
+            }
+            
             var formData = {
                 name: $('#name').val(),
                 surname: $('#surname').val(),
                 licenseNumber: $('#license-number').val(),
-                licenseExpiry: $('#license-expiry').val() // This is already in YYYY-MM-DD format from input
+                licenseExpiry: this.convertToBackendFormat(expiryDate) // Convert to YYYY-MM-DD
             };
             
             // Basic validation
             if (!formData.name || !formData.surname || !formData.licenseNumber || !formData.licenseExpiry) {
-                OC.Notification.showTemporary('Please fill in all fields');
+                OC.Notification.showTemporary('Please fill in all fields correctly');
                 return;
             }
             
