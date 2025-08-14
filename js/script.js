@@ -35,6 +35,7 @@
                 $('#surname').val(driver.surname);
                 $('#license-number').val(driver.licenseNumber);
                 $('#license-expiry').val(driver.licenseExpiry);
+                console.log('Loading driver data:', driver); // Debug line
             } else {
                 $('#form-title').text('Add New Driver');
                 $('#driver-form-element')[0].reset();
@@ -53,10 +54,14 @@
             $.get(this.baseUrl).done(function(drivers) {
                 self.drivers = drivers;
                 self.renderDrivers();
+            }).fail(function(xhr, status, error) {
+                console.error('Failed to load drivers:', error);
+                OC.Notification.showTemporary('Failed to load drivers');
             });
         },
 
         renderDrivers: function() {
+            var self = this; // Important: Store reference to 'this'
             var tbody = $('#drivers-table tbody');
             tbody.empty();
             
@@ -90,18 +95,32 @@
                 tbody.append(row);
             });
             
-            $('.edit-btn').on('click', function() {
-                var driverId = $(this).data('id');
-                var driver = this.drivers.find(d => d.id == driverId);
-                this.showForm(driver);
-            }.bind(this));
+            // Fixed: Use proper scope for 'this'
+            $('.edit-btn').off('click').on('click', function() {
+                var driverId = parseInt($(this).data('id'));
+                console.log('Editing driver ID:', driverId); // Debug line
+                
+                // Find the driver in the array
+                var driver = self.drivers.find(function(d) { 
+                    return parseInt(d.id) === driverId; 
+                });
+                
+                console.log('Found driver:', driver); // Debug line
+                
+                if (driver) {
+                    self.showForm(driver);
+                } else {
+                    console.error('Driver not found with ID:', driverId);
+                    OC.Notification.showTemporary('Error: Driver not found');
+                }
+            });
             
-            $('.delete-btn').on('click', function() {
+            $('.delete-btn').off('click').on('click', function() {
                 var driverId = $(this).data('id');
                 if (confirm('Are you sure you want to delete this driver?')) {
-                    this.deleteDriver(driverId);
+                    self.deleteDriver(driverId);
                 }
-            }.bind(this));
+            });
         },
 
         saveDriver: function() {
@@ -116,27 +135,31 @@
             var url = driverId ? this.baseUrl + '/' + driverId : this.baseUrl;
             var method = driverId ? 'PUT' : 'POST';
             
+            var self = this;
             $.ajax({
                 url: url,
                 method: method,
                 data: formData
             }).done(function() {
-                this.hideForm();
-                this.loadDrivers();
+                self.hideForm();
+                self.loadDrivers();
                 OC.Notification.showTemporary('Driver saved successfully');
-            }.bind(this)).fail(function() {
+            }).fail(function(xhr, status, error) {
+                console.error('Save failed:', error);
                 OC.Notification.showTemporary('Error saving driver');
             });
         },
 
         deleteDriver: function(id) {
+            var self = this;
             $.ajax({
                 url: this.baseUrl + '/' + id,
                 method: 'DELETE'
             }).done(function() {
-                this.loadDrivers();
+                self.loadDrivers();
                 OC.Notification.showTemporary('Driver deleted successfully');
-            }.bind(this)).fail(function() {
+            }).fail(function(xhr, status, error) {
+                console.error('Delete failed:', error);
                 OC.Notification.showTemporary('Error deleting driver');
             });
         }
