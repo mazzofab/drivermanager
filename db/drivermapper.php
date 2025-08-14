@@ -50,7 +50,7 @@ class DriverMapper extends Mapper {
         $targetDate = new \DateTime();
         $targetDate->add(new \DateInterval('P' . $days . 'D'));
         
-        $sql = 'SELECT * FROM `' . $this->tableName . '` WHERE license_expiry = ?';
+        $sql = 'SELECT * FROM `' . $this->tableName . '` WHERE license_expiry = ? ORDER BY surname ASC, name ASC';
         $params = [$targetDate->format('Y-m-d')];
         
         return $this->findEntities($sql, $params);
