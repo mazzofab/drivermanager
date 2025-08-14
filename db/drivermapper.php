@@ -9,9 +9,28 @@ class DriverMapper extends Mapper {
         parent::__construct($db, 'drivermanager_drivers', Driver::class);
     }
 
+    /**
+     * Find a driver by ID
+     * @param int $id
+     * @return Driver
+     * @throws \OCP\AppFramework\Db\DoesNotExistException
+     */
     public function find($id) {
         $sql = 'SELECT * FROM `' . $this->tableName . '` WHERE `id` = ?';
         return $this->findEntity($sql, [$id]);
+    }
+
+    /**
+     * Find a driver by ID (alternative method)
+     * @param int $id
+     * @return Driver|null
+     */
+    public function findById($id) {
+        try {
+            return $this->find($id);
+        } catch (\Exception $e) {
+            return null;
+        }
     }
 
     public function findAll($limit = null, $offset = null) {
@@ -54,5 +73,16 @@ class DriverMapper extends Mapper {
         $params = [$targetDate->format('Y-m-d')];
         
         return $this->findEntities($sql, $params);
+    }
+
+    /**
+     * Delete a driver by ID
+     * @param int $id
+     * @return bool
+     */
+    public function deleteById($id) {
+        $sql = 'DELETE FROM `' . $this->tableName . '` WHERE `id` = ?';
+        $stmt = $this->execute($sql, [$id]);
+        return $stmt->rowCount() > 0;
     }
 }

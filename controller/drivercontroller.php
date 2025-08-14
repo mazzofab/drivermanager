@@ -85,11 +85,26 @@ class DriverController extends Controller {
      */
     public function destroy($id) {
         try {
+            // Check if ID is valid
+            if (!$id || !is_numeric($id)) {
+                return new DataResponse(['error' => 'Invalid driver ID'], 400);
+            }
+            
+            // Try to find the driver first
             $driver = $this->mapper->find($id);
+            
+            if (!$driver) {
+                return new DataResponse(['error' => 'Driver not found'], 404);
+            }
+            
+            // Delete the driver
             $this->mapper->delete($driver);
-            return new DataResponse($driver);
+            
+            return new DataResponse(['success' => true, 'message' => 'Driver deleted successfully']);
+            
         } catch(\Exception $e) {
-            return new DataResponse(['error' => $e->getMessage()], 404);
+            \OC::$server->getLogger()->error('Error deleting driver: ' . $e->getMessage(), ['app' => 'drivermanager']);
+            return new DataResponse(['error' => 'Failed to delete driver: ' . $e->getMessage()], 500);
         }
     }
 }

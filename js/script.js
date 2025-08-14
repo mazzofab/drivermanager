@@ -63,7 +63,11 @@
             var tbody = $('#drivers-table tbody');
             tbody.empty();
             
-            this.drivers.forEach(function(driver) {
+            console.log('Rendering drivers:', this.drivers); // Debug
+            
+            this.drivers.forEach(function(driver, index) {
+                console.log('Processing driver #' + index + ':', driver); // Debug
+                
                 var expiryDate = new Date(driver.licenseExpiry);
                 var today = new Date();
                 var daysUntilExpiry = Math.ceil((expiryDate - today) / (1000 * 60 * 60 * 24));
@@ -79,15 +83,19 @@
                     statusClass = 'status-warning';
                 }
                 
+                // Make sure we have a valid ID
+                var driverId = driver.id || driver.driver_id || index; // Fallback options
+                console.log('Using driver ID:', driverId, 'for driver:', driver.name + ' ' + driver.surname);
+                
                 var row = $('<tr>');
-                row.append($('<td>').text(driver.name));
-                row.append($('<td>').text(driver.surname));
-                row.append($('<td>').text(driver.licenseNumber));
-                row.append($('<td>').text(driver.licenseExpiry));
+                row.append($('<td>').text(driver.name || ''));
+                row.append($('<td>').text(driver.surname || ''));
+                row.append($('<td>').text(driver.licenseNumber || ''));
+                row.append($('<td>').text(driver.licenseExpiry || ''));
                 row.append($('<td>').html('<span class="status ' + statusClass + '">' + status + '</span>'));
                 row.append($('<td>').html(
-                    '<button class="edit-btn" data-id="' + driver.id + '">Edit</button> ' +
-                    '<button class="delete-btn" data-id="' + driver.id + '">Delete</button>'
+                    '<button class="edit-btn" data-id="' + driverId + '" data-index="' + index + '">Edit</button> ' +
+                    '<button class="delete-btn" data-id="' + driverId + '" data-index="' + index + '">Delete</button>'
                 ));
                 
                 tbody.append(row);
@@ -95,33 +103,47 @@
             
             // Edit button handler
             $('.edit-btn').off('click').on('click', function() {
-                var driverId = parseInt($(this).data('id'));
-                var driver = self.drivers.find(function(d) { 
-                    return parseInt(d.id) === driverId; 
-                });
+                var driverId = $(this).data('id');
+                var driverIndex = $(this).data('index');
+                
+                console.log('Edit clicked - ID:', driverId, 'Index:', driverIndex);
+                
+                var driver = self.drivers[driverIndex]; // Use index as fallback
                 
                 if (driver) {
                     self.showForm(driver);
                 } else {
+                    console.error('Driver not found');
                     OC.Notification.showTemporary('Error: Driver not found');
                 }
             });
             
-            // Delete button handler - FIXED
+            // Delete button handler with better debugging
             $('.delete-btn').off('click').on('click', function() {
-                var driverId = parseInt($(this).data('id'));
+                var driverId = $(this).data('id');
+                var driverIndex = $(this).data('index');
                 
-                if (!driverId || isNaN(driverId)) {
-                    console.error('Invalid driver ID for delete:', $(this).data('id'));
+                console.log('Delete clicked - ID:', driverId, 'Index:', driverIndex);
+                console.log('Button element:', this);
+                console.log('Data attributes:', $(this).data());
+                
+                // Use the driver object to get the real ID
+                var driver = self.drivers[driverIndex];
+                var realId = driver ? (driver.id || driver.driver_id) : driverId;
+                
+                console.log('Real driver ID to delete:', realId);
+                
+                if (!realId) {
+                    console.error('No valid driver ID found');
                     OC.Notification.showTemporary('Error: Invalid driver ID');
                     return;
                 }
                 
-                if (confirm('Are you sure you want to delete this driver?')) {
-                    self.deleteDriver(driverId);
+                if (confirm('Are you sure you want to delete ' + (driver.name || 'this driver') + '?')) {
+                    self.deleteDriver(realId);
                 }
             });
-        },
+        }
 
         saveDriver: function() {
             var formData = {
