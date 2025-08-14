@@ -3,9 +3,17 @@
 
     var DriverManager = function () {
         this.drivers = [];
+        this.filteredDrivers = [];
         this.baseUrl = OC.generateUrl('/apps/drivermanager/api/drivers');
         this.currentDate = new Date();
         this.selectedDate = null;
+        
+        // Pagination settings
+        this.currentPage = 1;
+        this.pageSize = 25;
+        this.totalDrivers = 0;
+        this.searchQuery = '';
+        
         this.init();
     };
 
@@ -26,10 +34,170 @@
                 self.saveDriver();
             });
             
-            // Add input formatting for names and license number
+            // Search functionality
+            this.initSearch();
+            
+            // Pagination functionality
+            this.initPagination();
+            
+            // Input formatting and datepicker
             this.initInputFormatting();
             this.initCustomDatePicker();
+            
             this.loadDrivers();
+        },
+
+        // Initialize search functionality
+        initSearch: function() {
+            var self = this;
+            var searchTimeout;
+            
+            $('#search-input').on('input', function() {
+                clearTimeout(searchTimeout);
+                searchTimeout = setTimeout(function() {
+                    self.performSearch();
+                }, 300); // Debounce search for 300ms
+            });
+            
+            $('#search-btn').on('click', function() {
+                self.performSearch();
+            });
+            
+            $('#clear-search-btn').on('click', function() {
+                self.clearSearch();
+            });
+            
+            // Enter key to search
+            $('#search-input').on('keypress', function(e) {
+                if (e.which === 13) {
+                    self.performSearch();
+                }
+            });
+        },
+
+        // Initialize pagination functionality
+        initPagination: function() {
+            var self = this;
+            
+            $('#first-page').on('click', function() {
+                self.goToPage(1);
+            });
+            
+            $('#prev-page').on('click', function() {
+                self.goToPage(self.currentPage - 1);
+            });
+            
+            $('#next-page').on('click', function() {
+                self.goToPage(self.currentPage + 1);
+            });
+            
+            $('#last-page').on('click', function() {
+                var totalPages = Math.ceil(self.filteredDrivers.length / self.pageSize);
+                self.goToPage(totalPages);
+            });
+            
+            $('#page-size').on('change', function() {
+                self.pageSize = parseInt($(this).val());
+                self.currentPage = 1;
+                self.renderDrivers();
+                self.updatePaginationInfo();
+            });
+        },
+
+        // Perform search
+        performSearch: function() {
+            this.searchQuery = $('#search-input').val().trim().toLowerCase();
+            this.currentPage = 1;
+            this.filterAndRenderDrivers();
+            
+            // Show/hide clear button
+            if (this.searchQuery) {
+                $('#clear-search-btn').show();
+            } else {
+                $('#clear-search-btn').hide();
+            }
+        },
+
+        // Clear search
+        clearSearch: function() {
+            $('#search-input').val('');
+            this.searchQuery = '';
+            this.currentPage = 1;
+            this.filterAndRenderDrivers();
+            $('#clear-search-btn').hide();
+        },
+
+        // Filter drivers based on search query
+        filterDrivers: function() {
+            if (!this.searchQuery) {
+                this.filteredDrivers = this.drivers.slice();
+                return;
+            }
+            
+            this.filteredDrivers = this.drivers.filter(function(driver) {
+                var name = (driver.name || '').toLowerCase();
+                var surname = (driver.surname || '').toLowerCase();
+                var licenseNumber = (driver.licenseNumber || '').toLowerCase();
+                
+                return name.includes(this.searchQuery) || 
+                       surname.includes(this.searchQuery) || 
+                       licenseNumber.includes(this.searchQuery);
+            }.bind(this));
+        },
+
+        // Filter and render drivers
+        filterAndRenderDrivers: function() {
+            this.filterDrivers();
+            this.renderDrivers();
+            this.updatePaginationInfo();
+            this.updateResultsCount();
+        },
+
+        // Go to specific page
+        goToPage: function(page) {
+            var totalPages = Math.ceil(this.filteredDrivers.length / this.pageSize);
+            
+            if (page < 1 || page > totalPages) return;
+            
+            this.currentPage = page;
+            this.renderDrivers();
+            this.updatePaginationInfo();
+        },
+
+        // Update pagination controls
+        updatePaginationInfo: function() {
+            var totalPages = Math.ceil(this.filteredDrivers.length / this.pageSize);
+            
+            $('#page-info').text('Page ' + this.currentPage + ' of ' + totalPages);
+            
+            // Update button states
+            $('#first-page, #prev-page').prop('disabled', this.currentPage === 1);
+            $('#next-page, #last-page').prop('disabled', this.currentPage === totalPages || totalPages === 0);
+        },
+
+        // Update results count
+        updateResultsCount: function() {
+            var total = this.filteredDrivers.length;
+            var start = (this.currentPage - 1) * this.pageSize + 1;
+            var end = Math.min(this.currentPage * this.pageSize, total);
+            
+            var text = '';
+            if (total === 0) {
+                text = 'No drivers found';
+            } else if (this.searchQuery) {
+                text = 'Showing ' + start + '-' + end + ' of ' + total + ' drivers (filtered)';
+            } else {
+                text = 'Showing ' + start + '-' + end + ' of ' + total + ' drivers';
+            }
+            
+            $('#results-count').text(text);
+        },
+
+        // Get paginated drivers for current page
+        getPaginatedDrivers: function() {
+            var start = (this.currentPage - 1) * this.pageSize;
+            var end = start + this.pageSize;
+            return this.filteredDrivers.slice(start, end);
         },
 
         // Initialize input formatting for auto-capitalization
@@ -37,7 +205,6 @@
             // Capitalize first letter of each word for names
             $('#name, #surname').on('input', function() {
                 var value = $(this).val();
-                // Capitalize first letter of each word
                 var capitalized = value.replace(/\b\w+/g, function(word) {
                     return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
                 });
@@ -50,19 +217,18 @@
                 $(this).val(value);
             });
 
-            // Optional: Add input validation/formatting for license number
+            // Allow alphanumeric characters only for license number
             $('#license-number').on('keypress', function(e) {
-                // Allow alphanumeric characters only
                 var char = String.fromCharCode(e.which);
                 if (!/[a-zA-Z0-9]/.test(char)) {
                     e.preventDefault();
                 }
             });
 
-            // Optional: Limit license number length
+            // Limit license number length
             $('#license-number').on('input', function() {
                 var value = $(this).val();
-                if (value.length > 20) { // Adjust max length as needed
+                if (value.length > 20) {
                     $(this).val(value.substring(0, 20));
                 }
             });
@@ -70,12 +236,10 @@
 
         // Sanitize and format data before saving
         sanitizeFormData: function() {
-            // Get raw values
             var name = $('#name').val().trim();
             var surname = $('#surname').val().trim();
             var licenseNumber = $('#license-number').val().trim();
 
-            // Apply formatting
             return {
                 name: this.capitalizeWords(name),
                 surname: this.capitalizeWords(surname),
@@ -96,13 +260,11 @@
         initCustomDatePicker: function() {
             var self = this;
             
-            // Open datepicker
             $('#date-picker-btn, #license-expiry').on('click', function(e) {
                 e.preventDefault();
                 self.showDatePicker();
             });
             
-            // Navigation
             $('#prev-month').on('click', function() {
                 self.currentDate.setMonth(self.currentDate.getMonth() - 1);
                 self.renderCalendar();
@@ -113,7 +275,6 @@
                 self.renderCalendar();
             });
             
-            // Close datepicker when clicking outside
             $(document).on('click', function(e) {
                 if (!$(e.target).closest('.date-input-wrapper, #custom-datepicker').length) {
                     self.hideDatePicker();
@@ -135,16 +296,14 @@
             var year = this.currentDate.getFullYear();
             var month = this.currentDate.getMonth();
             
-            // Update header
             var monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
                 'July', 'August', 'September', 'October', 'November', 'December'];
             $('#current-month-year').text(monthNames[month] + ' ' + year);
             
-            // Get first day of month and number of days
             var firstDay = new Date(year, month, 1);
             var lastDay = new Date(year, month + 1, 0);
             var daysInMonth = lastDay.getDate();
-            var startingDayOfWeek = (firstDay.getDay() + 6) % 7; // Make Monday = 0
+            var startingDayOfWeek = (firstDay.getDay() + 6) % 7;
             
             var daysContainer = $('#datepicker-days');
             daysContainer.empty();
@@ -152,7 +311,6 @@
             var today = new Date();
             today.setHours(0, 0, 0, 0);
             
-            // Add empty cells for days before month starts
             for (var i = 0; i < startingDayOfWeek; i++) {
                 var prevMonthDay = new Date(year, month, 1 - startingDayOfWeek + i);
                 var dayElement = $('<div class="datepicker-day other-month">')
@@ -160,14 +318,12 @@
                 daysContainer.append(dayElement);
             }
             
-            // Add days of current month
             for (var day = 1; day <= daysInMonth; day++) {
                 var currentDay = new Date(year, month, day);
                 var dayElement = $('<div class="datepicker-day">')
                     .text(day)
                     .data('date', currentDay.getTime());
                 
-                // Add classes
                 if (currentDay.getTime() === today.getTime()) {
                     dayElement.addClass('today');
                 }
@@ -188,9 +344,8 @@
                 daysContainer.append(dayElement);
             }
             
-            // Add days of next month to fill grid
             var totalCells = daysContainer.children().length;
-            var remainingCells = 42 - totalCells; // 6 rows × 7 days
+            var remainingCells = 42 - totalCells;
             for (var i = 1; i <= remainingCells && i <= 14; i++) {
                 var nextMonthDay = $('<div class="datepicker-day other-month">')
                     .text(i);
@@ -204,7 +359,6 @@
             $('#license-expiry').val(formattedDate);
             this.hideDatePicker();
             
-            // Remove previous selected styling and add to new date
             $('.datepicker-day').removeClass('selected');
             $('.datepicker-day').each(function() {
                 if ($(this).data('date') === date.getTime()) {
@@ -213,7 +367,6 @@
             });
         },
 
-        // Format date for display as DD/MM/YYYY
         formatDateForDisplay: function(date) {
             if (!date) return '';
             
@@ -229,7 +382,6 @@
             }
         },
 
-        // Convert DD/MM/YYYY to YYYY-MM-DD for backend
         convertToBackendFormat: function(ddmmyyyy) {
             if (!ddmmyyyy) return '';
             
@@ -248,13 +400,11 @@
             }
         },
 
-        // Validate DD/MM/YYYY format
         isValidDateFormat: function(dateString) {
             var regex = /^\d{2}\/\d{2}\/\d{4}$/;
             return regex.test(dateString);
         },
 
-        // Get status based on days until expiry
         getStatusInfo: function(daysUntilExpiry) {
             if (daysUntilExpiry <= 0) {
                 return { text: 'Expired', class: 'status-expired' };
@@ -295,10 +445,16 @@
 
         loadDrivers: function() {
             var self = this;
+            $('#loading-indicator').show();
+            $('#drivers-table').hide();
+            
             $.get(this.baseUrl).done(function(drivers) {
                 self.drivers = drivers;
-                self.renderDrivers();
+                self.filterAndRenderDrivers();
+                $('#loading-indicator').hide();
+                $('#drivers-table').show();
             }).fail(function() {
+                $('#loading-indicator').hide();
                 OC.Notification.showTemporary('Failed to load drivers');
             });
         },
@@ -308,7 +464,18 @@
             var tbody = $('#drivers-table tbody');
             tbody.empty();
             
-            this.drivers.forEach(function(driver) {
+            var paginatedDrivers = this.getPaginatedDrivers();
+            
+            if (paginatedDrivers.length === 0) {
+                $('#no-results').show();
+                $('#drivers-table').hide();
+                return;
+            } else {
+                $('#no-results').hide();
+                $('#drivers-table').show();
+            }
+            
+            paginatedDrivers.forEach(function(driver) {
                 var expiryDate = new Date(driver.licenseExpiry);
                 var today = new Date();
                 var daysUntilExpiry = Math.ceil((expiryDate - today) / (1000 * 60 * 60 * 24));
@@ -347,22 +514,18 @@
         },
 
         saveDriver: function() {
-            // Use sanitized and formatted data
             var formData = this.sanitizeFormData();
             
-            // Validate all fields
             if (!formData.name || !formData.surname || !formData.licenseNumber || !formData.licenseExpiry) {
                 OC.Notification.showTemporary('Please fill in all fields');
                 return;
             }
 
-            // Validate date format
             if (!this.isValidDateFormat(formData.licenseExpiry)) {
                 OC.Notification.showTemporary('Please select a valid expiry date');
                 return;
             }
 
-            // Convert date for backend
             formData.licenseExpiry = this.convertToBackendFormat(formData.licenseExpiry);
             
             var driverId = $('#driver-id').val();

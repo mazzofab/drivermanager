@@ -3,7 +3,35 @@
         <h2>Driver License Manager</h2>
         <p>Manage driver information and track license expiry dates</p>
         
-        <button id="new-driver-btn" class="button primary">Add New Driver</button>
+        <!-- Search and Controls Section -->
+        <div class="controls-section">
+            <div class="search-controls">
+                <div class="search-box">
+                    <input type="text" id="search-input" placeholder="Search by name, surname, or license number..." />
+                    <button type="button" id="search-btn" class="search-button">🔍</button>
+                    <button type="button" id="clear-search-btn" class="clear-button" style="display: none;">✕</button>
+                </div>
+                <button id="new-driver-btn" class="button primary">Add New Driver</button>
+            </div>
+            
+            <!-- Results Info and Pagination Controls -->
+            <div class="results-info">
+                <span id="results-count">Loading...</span>
+                <div class="pagination-controls">
+                    <button id="first-page" class="page-btn" disabled>⏮</button>
+                    <button id="prev-page" class="page-btn" disabled>◀</button>
+                    <span id="page-info">Page 1 of 1</span>
+                    <button id="next-page" class="page-btn" disabled>▶</button>
+                    <button id="last-page" class="page-btn" disabled>⏭</button>
+                    <select id="page-size" class="page-size-select">
+                        <option value="10">10 per page</option>
+                        <option value="25" selected>25 per page</option>
+                        <option value="50">50 per page</option>
+                        <option value="100">100 per page</option>
+                    </select>
+                </div>
+            </div>
+        </div>
         
         <div id="driver-form" style="display: none;">
             <h3 id="form-title">Add New Driver</h3>
@@ -52,6 +80,9 @@
         </div>
         
         <div id="drivers-list">
+            <div id="loading-indicator" style="display: none;">
+                <p>Loading drivers...</p>
+            </div>
             <table id="drivers-table">
                 <thead>
                     <tr>
@@ -65,6 +96,9 @@
                 </thead>
                 <tbody></tbody>
             </table>
+            <div id="no-results" style="display: none;">
+                <p>No drivers found matching your search criteria.</p>
+            </div>
         </div>
     </div>
 </div>
