@@ -39,11 +39,11 @@
                 <input type="hidden" id="driver-id" value="">
                 <div class="form-group">
                     <label for="name">Name:</label>
-                    <input type="text" id="name" name="name" placeholder="e.g., Marco" required>
+                    <input type="text" id="name" name="name" placeholder="e.g., John" required>
                 </div>
                 <div class="form-group">
                     <label for="surname">Surname:</label>
-                    <input type="text" id="surname" name="surname" placeholder="e.g., Rossi" required>
+                    <input type="text" id="surname" name="surname" placeholder="e.g., Rodrick" required>
                 </div>
                 <div class="form-group">
                     <label for="license-number">License Number:</label>
