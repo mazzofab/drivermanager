@@ -4,7 +4,8 @@
     var DriverManager = function () {
         this.drivers = [];
         this.baseUrl = OC.generateUrl('/apps/drivermanager/api/drivers');
-        this.datePicker = null;
+        this.currentDate = new Date();
+        this.selectedDate = null;
         this.init();
     };
 
@@ -25,66 +26,136 @@
                 self.saveDriver();
             });
             
-            // Initialize datepicker when DOM is ready
-            this.initDatePicker();
-            
+            this.initCustomDatePicker();
             this.loadDrivers();
         },
 
-        // Initialize Flatpickr datepicker
-        initDatePicker: function() {
+        // Initialize custom datepicker
+        initCustomDatePicker: function() {
             var self = this;
             
-            // Wait for Flatpickr to be available
-            if (typeof flatpickr !== 'undefined') {
-                this.setupDatePicker();
-            } else {
-                // Retry after a short delay
-                setTimeout(function() {
-                    self.initDatePicker();
-                }, 100);
+            // Open datepicker
+            $('#date-picker-btn, #license-expiry').on('click', function(e) {
+                e.preventDefault();
+                self.showDatePicker();
+            });
+            
+            // Navigation
+            $('#prev-month').on('click', function() {
+                self.currentDate.setMonth(self.currentDate.getMonth() - 1);
+                self.renderCalendar();
+            });
+            
+            $('#next-month').on('click', function() {
+                self.currentDate.setMonth(self.currentDate.getMonth() + 1);
+                self.renderCalendar();
+            });
+            
+            // Close datepicker when clicking outside
+            $(document).on('click', function(e) {
+                if (!$(e.target).closest('.date-input-wrapper, #custom-datepicker').length) {
+                    self.hideDatePicker();
+                }
+            });
+        },
+
+        showDatePicker: function() {
+            this.renderCalendar();
+            $('#custom-datepicker').show();
+        },
+
+        hideDatePicker: function() {
+            $('#custom-datepicker').hide();
+        },
+
+        renderCalendar: function() {
+            var self = this;
+            var year = this.currentDate.getFullYear();
+            var month = this.currentDate.getMonth();
+            
+            // Update header
+            var monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
+                'July', 'August', 'September', 'October', 'November', 'December'];
+            $('#current-month-year').text(monthNames[month] + ' ' + year);
+            
+            // Get first day of month and number of days
+            var firstDay = new Date(year, month, 1);
+            var lastDay = new Date(year, month + 1, 0);
+            var daysInMonth = lastDay.getDate();
+            var startingDayOfWeek = (firstDay.getDay() + 6) % 7; // Make Monday = 0
+            
+            var daysContainer = $('#datepicker-days');
+            daysContainer.empty();
+            
+            var today = new Date();
+            today.setHours(0, 0, 0, 0);
+            
+            // Add empty cells for days before month starts
+            for (var i = 0; i < startingDayOfWeek; i++) {
+                var prevMonthDay = new Date(year, month, 1 - startingDayOfWeek + i);
+                var dayElement = $('<div class="datepicker-day other-month">')
+                    .text(prevMonthDay.getDate());
+                daysContainer.append(dayElement);
+            }
+            
+            // Add days of current month
+            for (var day = 1; day <= daysInMonth; day++) {
+                var currentDay = new Date(year, month, day);
+                var dayElement = $('<div class="datepicker-day">')
+                    .text(day)
+                    .data('date', currentDay.getTime());
+                
+                // Add classes
+                if (currentDay.getTime() === today.getTime()) {
+                    dayElement.addClass('today');
+                }
+                
+                if (currentDay < today) {
+                    dayElement.addClass('past');
+                } else {
+                    dayElement.on('click', function() {
+                        var clickedDate = new Date($(this).data('date'));
+                        self.selectDate(clickedDate);
+                    });
+                }
+                
+                if (this.selectedDate && currentDay.getTime() === this.selectedDate.getTime()) {
+                    dayElement.addClass('selected');
+                }
+                
+                daysContainer.append(dayElement);
+            }
+            
+            // Add days of next month to fill grid
+            var totalCells = daysContainer.children().length;
+            var remainingCells = 42 - totalCells; // 6 rows × 7 days
+            for (var i = 1; i <= remainingCells && i <= 14; i++) {
+                var nextMonthDay = $('<div class="datepicker-day other-month">')
+                    .text(i);
+                daysContainer.append(nextMonthDay);
             }
         },
 
-        setupDatePicker: function() {
-            var self = this;
+        selectDate: function(date) {
+            this.selectedDate = new Date(date);
+            var formattedDate = this.formatDateForDisplay(date);
+            $('#license-expiry').val(formattedDate);
+            this.hideDatePicker();
             
-            this.datePicker = flatpickr("#license-expiry", {
-                dateFormat: "d/m/Y", // DD/MM/YYYY format
-                allowInput: true,
-                clickOpens: false, // We'll control opening with the button
-                locale: {
-                    firstDayOfWeek: 1 // Start week on Monday
-                },
-                minDate: "today", // Prevent selecting past dates
-                onChange: function(selectedDates, dateStr, instance) {
-                    // Date is automatically formatted as DD/MM/YYYY
-                    console.log('Date selected:', dateStr);
-                }
-            });
-            
-            // Open datepicker when button is clicked
-            $('#date-picker-btn').on('click', function(e) {
-                e.preventDefault();
-                if (self.datePicker) {
-                    self.datePicker.open();
-                }
-            });
-            
-            // Also open when clicking the input
-            $('#license-expiry').on('click', function() {
-                if (self.datePicker) {
-                    self.datePicker.open();
+            // Remove previous selected styling and add to new date
+            $('.datepicker-day').removeClass('selected');
+            $('.datepicker-day').each(function() {
+                if ($(this).data('date') === date.getTime()) {
+                    $(this).addClass('selected');
                 }
             });
         },
 
         // Format date for display as DD/MM/YYYY
-        formatDateForDisplay: function(dateString) {
-            if (!dateString) return '';
+        formatDateForDisplay: function(date) {
+            if (!date) return '';
             
             try {
-                var date = new Date(dateString);
                 var day = String(date.getDate()).padStart(2, '0');
                 var month = String(date.getMonth() + 1).padStart(2, '0');
                 var year = date.getFullYear();
@@ -92,7 +163,7 @@
                 return day + '/' + month + '/' + year;
             } catch (e) {
                 console.warn('Date formatting error:', e);
-                return dateString;
+                return '';
             }
         },
 
@@ -108,12 +179,6 @@
                 var month = parts[1].padStart(2, '0');
                 var year = parts[2];
                 
-                // Validate the date
-                var date = new Date(year, month - 1, day);
-                if (date.getFullYear() != year || date.getMonth() != month - 1 || date.getDate() != day) {
-                    throw new Error('Invalid date');
-                }
-                
                 return year + '-' + month + '-' + day;
             } catch (e) {
                 console.warn('Date conversion error:', e);
@@ -124,42 +189,17 @@
         // Validate DD/MM/YYYY format
         isValidDateFormat: function(dateString) {
             var regex = /^\d{2}\/\d{2}\/\d{4}$/;
-            if (!regex.test(dateString)) return false;
-            
-            var parts = dateString.split('/');
-            var day = parseInt(parts[0], 10);
-            var month = parseInt(parts[1], 10);
-            var year = parseInt(parts[2], 10);
-            
-            // Basic validation
-            if (month < 1 || month > 12) return false;
-            if (day < 1 || day > 31) return false;
-            if (year < 1900 || year > 2100) return false;
-            
-            // Check if date is valid
-            var date = new Date(year, month - 1, day);
-            return date.getFullYear() === year && 
-                   date.getMonth() === month - 1 && 
-                   date.getDate() === day;
+            return regex.test(dateString);
         },
 
         // Get status based on days until expiry
         getStatusInfo: function(daysUntilExpiry) {
             if (daysUntilExpiry <= 0) {
-                return {
-                    text: 'Expired',
-                    class: 'status-expired'
-                };
+                return { text: 'Expired', class: 'status-expired' };
             } else if (daysUntilExpiry <= 30) {
-                return {
-                    text: 'Expiring Soon',
-                    class: 'status-warning'
-                };
+                return { text: 'Expiring Soon', class: 'status-warning' };
             } else {
-                return {
-                    text: 'Valid',
-                    class: 'status-valid'
-                };
+                return { text: 'Valid', class: 'status-valid' };
             }
         },
 
@@ -171,24 +211,14 @@
                 $('#surname').val(driver.surname);
                 $('#license-number').val(driver.licenseNumber);
                 
-                // Set the datepicker value
-                var displayDate = this.formatDateForDisplay(driver.licenseExpiry);
+                var displayDate = this.formatDateForDisplay(new Date(driver.licenseExpiry));
                 $('#license-expiry').val(displayDate);
-                
-                // Update datepicker if available
-                if (this.datePicker) {
-                    var backendDate = new Date(driver.licenseExpiry);
-                    this.datePicker.setDate(backendDate, false);
-                }
+                this.selectedDate = new Date(driver.licenseExpiry);
             } else {
                 $('#form-title').text('Add New Driver');
                 $('#driver-form-element')[0].reset();
                 $('#driver-id').val('');
-                
-                // Clear datepicker
-                if (this.datePicker) {
-                    this.datePicker.clear();
-                }
+                this.selectedDate = null;
             }
             $('#driver-form').show();
             $('#name').focus();
@@ -197,9 +227,8 @@
         hideForm: function() {
             $('#driver-form').hide();
             $('#driver-form-element')[0].reset();
-            if (this.datePicker) {
-                this.datePicker.clear();
-            }
+            this.hideDatePicker();
+            this.selectedDate = null;
         },
 
         loadDrivers: function() {
@@ -223,7 +252,7 @@
                 var daysUntilExpiry = Math.ceil((expiryDate - today) / (1000 * 60 * 60 * 24));
                 
                 var statusInfo = self.getStatusInfo(daysUntilExpiry);
-                var displayDate = self.formatDateForDisplay(driver.licenseExpiry);
+                var displayDate = self.formatDateForDisplay(expiryDate);
                 
                 var row = $('<tr>');
                 row.append($('<td>').text(driver.name));
@@ -244,8 +273,6 @@
                 var driver = self.drivers.find(d => d.id == driverId);
                 if (driver) {
                     self.showForm(driver);
-                } else {
-                    OC.Notification.showTemporary('Driver not found');
                 }
             });
             
@@ -260,7 +287,6 @@
         saveDriver: function() {
             var expiryDate = $('#license-expiry').val();
             
-            // Validate date format
             if (!this.isValidDateFormat(expiryDate)) {
                 OC.Notification.showTemporary('Please select a valid expiry date');
                 return;
@@ -273,7 +299,6 @@
                 licenseExpiry: this.convertToBackendFormat(expiryDate)
             };
             
-            // Basic validation
             if (!formData.name || !formData.surname || !formData.licenseNumber || !formData.licenseExpiry) {
                 OC.Notification.showTemporary('Please fill in all fields correctly');
                 return;
@@ -292,26 +317,12 @@
                 self.hideForm();
                 self.loadDrivers();
                 OC.Notification.showTemporary('Driver saved successfully');
-            }).fail(function(xhr) {
-                var errorMsg = 'Error saving driver';
-                try {
-                    var response = JSON.parse(xhr.responseText);
-                    if (response.error) {
-                        errorMsg += ': ' + response.error;
-                    }
-                } catch (e) {
-                    // Use default error message
-                }
-                OC.Notification.showTemporary(errorMsg);
+            }).fail(function() {
+                OC.Notification.showTemporary('Error saving driver');
             });
         },
 
         deleteDriver: function(id) {
-            if (!id) {
-                OC.Notification.showTemporary('Invalid driver ID');
-                return;
-            }
-            
             var self = this;
             $.ajax({
                 url: this.baseUrl + '/' + id,
@@ -319,17 +330,8 @@
             }).done(function() {
                 self.loadDrivers();
                 OC.Notification.showTemporary('Driver deleted successfully');
-            }).fail(function(xhr) {
-                var errorMsg = 'Error deleting driver';
-                try {
-                    var response = JSON.parse(xhr.responseText);
-                    if (response.error) {
-                        errorMsg += ': ' + response.error;
-                    }
-                } catch (e) {
-                    // Use default error message
-                }
-                OC.Notification.showTemporary(errorMsg);
+            }).fail(function() {
+                OC.Notification.showTemporary('Error deleting driver');
             });
         }
     };

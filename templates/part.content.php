@@ -29,6 +29,19 @@
                         <button type="button" id="date-picker-btn" class="date-picker-button">📅</button>
                     </div>
                     <small>Click the calendar icon to select a date</small>
+                    
+                    <!-- Custom datepicker popup -->
+                    <div id="custom-datepicker" class="datepicker-popup" style="display: none;">
+                        <div class="datepicker-header">
+                            <button type="button" id="prev-month" class="datepicker-nav">‹</button>
+                            <span id="current-month-year"></span>
+                            <button type="button" id="next-month" class="datepicker-nav">›</button>
+                        </div>
+                        <div class="datepicker-weekdays">
+                            <span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span><span>Su</span>
+                        </div>
+                        <div id="datepicker-days" class="datepicker-days"></div>
+                    </div>
                 </div>
                 <div class="form-buttons">
                     <button type="submit" class="button primary">Save</button>
@@ -54,7 +67,3 @@
         </div>
     </div>
 </div>
-
-<!-- Load Flatpickr CSS and JS from CDN -->
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
-<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>

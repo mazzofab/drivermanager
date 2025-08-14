@@ -4,6 +4,7 @@
 
 .form-group {
     margin-bottom: 15px;
+    position: relative;
 }
 
 .form-group label {
@@ -49,6 +50,101 @@
 
 .date-picker-button:hover {
     background: #005577;
+}
+
+/* Custom Datepicker Styles */
+.datepicker-popup {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    z-index: 1000;
+    width: 280px;
+    padding: 10px;
+    margin-top: 2px;
+}
+
+.datepicker-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+    padding: 0 5px;
+}
+
+.datepicker-nav {
+    background: none;
+    border: none;
+    font-size: 18px;
+    cursor: pointer;
+    padding: 5px 10px;
+    border-radius: 3px;
+    color: #0082c9;
+}
+
+.datepicker-nav:hover {
+    background: #f0f0f0;
+}
+
+.datepicker-header span {
+    font-weight: bold;
+    color: #333;
+}
+
+.datepicker-weekdays {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 2px;
+    margin-bottom: 5px;
+}
+
+.datepicker-weekdays span {
+    text-align: center;
+    font-size: 12px;
+    font-weight: bold;
+    color: #666;
+    padding: 5px;
+}
+
+.datepicker-days {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 2px;
+}
+
+.datepicker-day {
+    text-align: center;
+    padding: 8px 4px;
+    cursor: pointer;
+    border-radius: 3px;
+    font-size: 14px;
+    transition: background-color 0.2s;
+}
+
+.datepicker-day:hover {
+    background: #e3f2fd;
+}
+
+.datepicker-day.other-month {
+    color: #ccc;
+}
+
+.datepicker-day.today {
+    background: #fff3cd;
+    font-weight: bold;
+}
+
+.datepicker-day.selected {
+    background: #0082c9;
+    color: white;
+}
+
+.datepicker-day.past {
+    color: #ccc;
+    cursor: not-allowed;
 }
 
 .form-group small {
@@ -131,18 +227,4 @@
 
 .delete-btn:hover {
     background-color: #c82333;
-}
-
-/* Flatpickr custom styling */
-.flatpickr-day.today {
-    border-color: #0082c9;
-}
-
-.flatpickr-day.selected {
-    background: #0082c9;
-    border-color: #0082c9;
-}
-
-.flatpickr-day.selected:hover {
-    background: #005577;
 }
