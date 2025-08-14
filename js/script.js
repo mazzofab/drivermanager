@@ -27,25 +27,24 @@
             this.loadDrivers();
         },
 
-        // Format date for display based on browser locale
+        // Format date for display as DD/MM/YYYY
         formatDateForDisplay: function(dateString) {
             if (!dateString) return '';
             
             try {
                 var date = new Date(dateString);
-                // Use browser's locale for formatting
-                return date.toLocaleDateString(navigator.language || 'en-US', {
-                    year: 'numeric',
-                    month: '2-digit',
-                    day: '2-digit'
-                });
+                var day = String(date.getDate()).padStart(2, '0');
+                var month = String(date.getMonth() + 1).padStart(2, '0'); // +1 because months are 0-indexed
+                var year = date.getFullYear();
+                
+                return day + '/' + month + '/' + year; // DD/MM/YYYY
             } catch (e) {
                 console.warn('Date formatting error:', e);
                 return dateString; // Fallback to original string
             }
         },
 
-        // Convert date from display format back to YYYY-MM-DD for form input
+        // Convert date from DD/MM/YYYY or any format back to YYYY-MM-DD for form input
         formatDateForInput: function(dateString) {
             if (!dateString) return '';
             
@@ -58,9 +57,8 @@
             }
         },
 
-        // Get localized status text
-        getLocalizedStatus: function(daysUntilExpiry) {
-            // You can add translation support here later
+        // Get status based on days until expiry
+        getStatusInfo: function(daysUntilExpiry) {
             if (daysUntilExpiry <= 0) {
                 return {
                     text: 'Expired',
@@ -121,16 +119,16 @@
                 var today = new Date();
                 var daysUntilExpiry = Math.ceil((expiryDate - today) / (1000 * 60 * 60 * 24));
                 
-                var statusInfo = self.getLocalizedStatus(daysUntilExpiry);
+                var statusInfo = self.getStatusInfo(daysUntilExpiry);
                 
-                // Format the expiry date for display
+                // Format the expiry date for display as DD/MM/YYYY
                 var displayDate = self.formatDateForDisplay(driver.licenseExpiry);
                 
                 var row = $('<tr>');
                 row.append($('<td>').text(driver.name));
                 row.append($('<td>').text(driver.surname));
                 row.append($('<td>').text(driver.licenseNumber));
-                row.append($('<td>').text(displayDate)); // Localized date display
+                row.append($('<td>').text(displayDate)); // DD/MM/YYYY format
                 row.append($('<td>').html('<span class="status ' + statusInfo.class + '">' + statusInfo.text + '</span>'));
                 row.append($('<td>').html(
                     '<button class="edit-btn" data-id="' + driver.id + '">Edit</button> ' +
