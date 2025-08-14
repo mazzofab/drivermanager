@@ -4,6 +4,7 @@
     var DriverManager = function () {
         this.drivers = [];
         this.baseUrl = OC.generateUrl('/apps/drivermanager/api/drivers');
+        this.datePicker = null;
         this.init();
     };
 
@@ -24,26 +25,58 @@
                 self.saveDriver();
             });
             
-            // Add date input formatting
-            $('#license-expiry').on('input', function() {
-                self.formatDateInput(this);
-            });
+            // Initialize datepicker when DOM is ready
+            this.initDatePicker();
             
             this.loadDrivers();
         },
 
-        // Format date input as user types (DD/MM/YYYY)
-        formatDateInput: function(input) {
-            var value = input.value.replace(/\D/g, ''); // Remove non-digits
+        // Initialize Flatpickr datepicker
+        initDatePicker: function() {
+            var self = this;
             
-            if (value.length >= 2) {
-                value = value.substring(0, 2) + '/' + value.substring(2);
+            // Wait for Flatpickr to be available
+            if (typeof flatpickr !== 'undefined') {
+                this.setupDatePicker();
+            } else {
+                // Retry after a short delay
+                setTimeout(function() {
+                    self.initDatePicker();
+                }, 100);
             }
-            if (value.length >= 5) {
-                value = value.substring(0, 5) + '/' + value.substring(5, 9);
-            }
+        },
+
+        setupDatePicker: function() {
+            var self = this;
             
-            input.value = value;
+            this.datePicker = flatpickr("#license-expiry", {
+                dateFormat: "d/m/Y", // DD/MM/YYYY format
+                allowInput: true,
+                clickOpens: false, // We'll control opening with the button
+                locale: {
+                    firstDayOfWeek: 1 // Start week on Monday
+                },
+                minDate: "today", // Prevent selecting past dates
+                onChange: function(selectedDates, dateStr, instance) {
+                    // Date is automatically formatted as DD/MM/YYYY
+                    console.log('Date selected:', dateStr);
+                }
+            });
+            
+            // Open datepicker when button is clicked
+            $('#date-picker-btn').on('click', function(e) {
+                e.preventDefault();
+                if (self.datePicker) {
+                    self.datePicker.open();
+                }
+            });
+            
+            // Also open when clicking the input
+            $('#license-expiry').on('click', function() {
+                if (self.datePicker) {
+                    self.datePicker.open();
+                }
+            });
         },
 
         // Format date for display as DD/MM/YYYY
@@ -137,21 +170,36 @@
                 $('#name').val(driver.name);
                 $('#surname').val(driver.surname);
                 $('#license-number').val(driver.licenseNumber);
-                // Display date in DD/MM/YYYY format in the form
-                $('#license-expiry').val(this.formatDateForDisplay(driver.licenseExpiry));
+                
+                // Set the datepicker value
+                var displayDate = this.formatDateForDisplay(driver.licenseExpiry);
+                $('#license-expiry').val(displayDate);
+                
+                // Update datepicker if available
+                if (this.datePicker) {
+                    var backendDate = new Date(driver.licenseExpiry);
+                    this.datePicker.setDate(backendDate, false);
+                }
             } else {
                 $('#form-title').text('Add New Driver');
                 $('#driver-form-element')[0].reset();
                 $('#driver-id').val('');
+                
+                // Clear datepicker
+                if (this.datePicker) {
+                    this.datePicker.clear();
+                }
             }
             $('#driver-form').show();
-            // Focus on first input
             $('#name').focus();
         },
 
         hideForm: function() {
             $('#driver-form').hide();
             $('#driver-form-element')[0].reset();
+            if (this.datePicker) {
+                this.datePicker.clear();
+            }
         },
 
         loadDrivers: function() {
@@ -175,8 +223,6 @@
                 var daysUntilExpiry = Math.ceil((expiryDate - today) / (1000 * 60 * 60 * 24));
                 
                 var statusInfo = self.getStatusInfo(daysUntilExpiry);
-                
-                // Format the expiry date for display as DD/MM/YYYY
                 var displayDate = self.formatDateForDisplay(driver.licenseExpiry);
                 
                 var row = $('<tr>');
@@ -193,7 +239,6 @@
                 tbody.append(row);
             });
             
-            // Remove previous event handlers to prevent duplicates
             $('.edit-btn').off('click').on('click', function() {
                 var driverId = $(this).data('id');
                 var driver = self.drivers.find(d => d.id == driverId);
@@ -217,8 +262,7 @@
             
             // Validate date format
             if (!this.isValidDateFormat(expiryDate)) {
-                OC.Notification.showTemporary('Please enter a valid date in DD/MM/YYYY format');
-                $('#license-expiry').focus();
+                OC.Notification.showTemporary('Please select a valid expiry date');
                 return;
             }
             
@@ -226,7 +270,7 @@
                 name: $('#name').val(),
                 surname: $('#surname').val(),
                 licenseNumber: $('#license-number').val(),
-                licenseExpiry: this.convertToBackendFormat(expiryDate) // Convert to YYYY-MM-DD
+                licenseExpiry: this.convertToBackendFormat(expiryDate)
             };
             
             // Basic validation
