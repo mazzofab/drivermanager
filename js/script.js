@@ -69,7 +69,7 @@
                 var status = 'Valid';
                 var statusClass = 'status-valid';
                 
-                if (daysUntilExpiry < 0) {
+                if (daysUntilExpiry <= 0) {
                     status = 'Expired';
                     statusClass = 'status-expired';
                 } else if (daysUntilExpiry <= 30) {
