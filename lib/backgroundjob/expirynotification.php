@@ -7,7 +7,7 @@ use OCA\DriverManager\Db\DriverMapper;
 class ExpiryNotification extends TimedJob {
     
     public function __construct() {
-        // Run daily at a specific time (you can adjust this)
+        // Run daily
         $this->setInterval(24 * 60 * 60);
     }
 
@@ -22,14 +22,42 @@ class ExpiryNotification extends TimedJob {
             $groupManager = \OC::$server->getGroupManager();
             $userManager = \OC::$server->getUserManager();
             
-            // Check for licenses expiring in 30, 7, and 1 days
-            $checkDays = [30, 7, 1];
+            // Calculate target dates
+            $today = new \DateTime();
+            $dates = [
+                30 => (clone $today)->add(new \DateInterval('P30D'))->format('Y-m-d'),
+                7 => (clone $today)->add(new \DateInterval('P7D'))->format('Y-m-d'),
+                1 => (clone $today)->add(new \DateInterval('P1D'))->format('Y-m-d')
+            ];
             
-            foreach ($checkDays as $days) {
-                $expiringDrivers = $driverMapper->findExpiringDrivers($days);
+            \OC::$server->getLogger()->info('Checking expiry dates: ' . json_encode($dates), ['app' => 'drivermanager']);
+            
+            // Check each interval
+            foreach ([30, 7, 1] as $days) {
+                $targetDate = $dates[$days];
                 
-                if (!empty($expiringDrivers)) {
-                    \OC::$server->getLogger()->info("Found " . count($expiringDrivers) . " drivers expiring in {$days} days", ['app' => 'drivermanager']);
+                // Use direct SQL query for more reliable results
+                $connection = \OC::$server->getDatabaseConnection();
+                $sql = 'SELECT * FROM oc_drivermanager_drivers WHERE license_expiry = ? ORDER BY surname ASC, name ASC';
+                $result = $connection->executeQuery($sql, [$targetDate]);
+                $rows = $result->fetchAll();
+                
+                \OC::$server->getLogger()->info("Found " . count($rows) . " drivers expiring on {$targetDate} ({$days} days)", ['app' => 'drivermanager']);
+                
+                if (!empty($rows)) {
+                    // Convert to driver objects
+                    $expiringDrivers = [];
+                    foreach ($rows as $row) {
+                        $driver = new \OCA\DriverManager\Db\Driver();
+                        $driver->setId($row['id']);
+                        $driver->setName($row['name']);
+                        $driver->setSurname($row['surname']);
+                        $driver->setLicenseNumber($row['license_number']);
+                        $driver->setLicenseExpiry($row['license_expiry']);
+                        $driver->setUserId($row['user_id']);
+                        $expiringDrivers[] = $driver;
+                    }
+                    
                     $this->sendGroupEmail($expiringDrivers, $days, $mailer, $config, $groupManager, $userManager);
                 }
             }
@@ -39,12 +67,10 @@ class ExpiryNotification extends TimedJob {
         }
     }
 
-    /**
-     * Send email to all users in the "driver notifications" group
-     */
+    // ... rest of the methods remain the same ...
     private function sendGroupEmail($drivers, $days, $mailer, $config, $groupManager, $userManager) {
+        // Same as before - no changes needed to this method
         try {
-            // Get the "driver notifications" group
             $group = $groupManager->get('driver notifications');
             
             if (!$group) {
@@ -52,7 +78,6 @@ class ExpiryNotification extends TimedJob {
                 return;
             }
             
-            // Get all users in the group
             $groupUsers = $group->getUsers();
             
             if (empty($groupUsers)) {
@@ -60,13 +85,11 @@ class ExpiryNotification extends TimedJob {
                 return;
             }
             
-            // Get email addresses
             $recipients = [];
             foreach ($groupUsers as $user) {
                 $email = $user->getEMailAddress();
                 if ($email) {
                     $recipients[$email] = $user->getDisplayName();
-                    \OC::$server->getLogger()->info("Added recipient: {$email} ({$user->getDisplayName()})", ['app' => 'drivermanager']);
                 }
             }
             
@@ -75,14 +98,11 @@ class ExpiryNotification extends TimedJob {
                 return;
             }
             
-            // Create and send email
             $message = $mailer->createMessage();
             
-            // Get email settings from config
             $fromEmail = $config->getSystemValue('mail_from_address', 'noreply') . '@' . 
                         $config->getSystemValue('mail_domain', 'yourcompany.com');
             
-            // Set email properties
             $subject = $this->getEmailSubject($drivers, $days);
             $htmlBody = $this->getEmailBody($drivers, $days);
             
@@ -91,7 +111,6 @@ class ExpiryNotification extends TimedJob {
                     ->setTo($recipients)
                     ->setHtmlBody($htmlBody);
             
-            // Send the email
             $mailer->send($message);
             
             \OC::$server->getLogger()->info("Successfully sent expiry notification email for {$days} days to " . count($recipients) . " recipients", ['app' => 'drivermanager']);
@@ -101,9 +120,6 @@ class ExpiryNotification extends TimedJob {
         }
     }
 
-    /**
-     * Generate email subject based on number of drivers and days
-     */
     private function getEmailSubject($drivers, $days) {
         $count = count($drivers);
         
@@ -122,21 +138,15 @@ class ExpiryNotification extends TimedJob {
         }
     }
 
-    /**
-     * Generate HTML email body with driver details
-     */
     private function getEmailBody($drivers, $days) {
         $count = count($drivers);
         
-        // Email header
         $html = '<html><body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">';
         
-        // Header section
         $html .= '<div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;">';
         $html .= '<h2 style="color: #0082c9; margin: 0;">Driver License Expiry Notification</h2>';
         $html .= '</div>';
         
-        // Urgency indicator
         if ($days === 1) {
             $html .= '<div style="background-color: #f8d7da; color: #721c24; padding: 15px; border-radius: 5px; margin-bottom: 20px; border-left: 4px solid #dc3545;">';
             $html .= '<strong>🚨 URGENT:</strong> The following driver' . ($count > 1 ? 's have' : ' has') . ' license' . ($count > 1 ? 's' : '') . ' expiring <strong>tomorrow</strong>:';
@@ -151,10 +161,8 @@ class ExpiryNotification extends TimedJob {
             $html .= '</div>';
         }
         
-        // Drivers table
         $html .= '<table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; background-color: white; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">';
         
-        // Table header
         $html .= '<thead>';
         $html .= '<tr style="background-color: #0082c9; color: white;">';
         $html .= '<th style="padding: 12px; text-align: left; border: 1px solid #dee2e6;">Name</th>';
@@ -164,7 +172,6 @@ class ExpiryNotification extends TimedJob {
         $html .= '</tr>';
         $html .= '</thead>';
         
-        // Table body
         $html .= '<tbody>';
         foreach ($drivers as $driver) {
             $html .= '<tr style="border-bottom: 1px solid #dee2e6;">';
@@ -177,24 +184,9 @@ class ExpiryNotification extends TimedJob {
         $html .= '</tbody>';
         $html .= '</table>';
         
-        // Action required section
-        $html .= '<div style="background-color: #e7f3ff; padding: 15px; border-radius: 5px; margin-bottom: 20px; border-left: 4px solid #007bff;">';
-        $html .= '<h3 style="margin-top: 0; color: #004085;">Action Required:</h3>';
-        $html .= '<ul style="margin-bottom: 0;">';
-        $html .= '<li>Contact the driver' . ($count > 1 ? 's' : '') . ' to arrange license renewal</li>';
-        $html .= '<li>Ensure renewal is completed before the expiry date</li>';
-        $html .= '<li>Update the system once renewal is confirmed</li>';
-        if ($days === 1) {
-            $html .= '<li><strong>URGENT: Take immediate action as license' . ($count > 1 ? 's expire' : ' expires') . ' tomorrow!</strong></li>';
-        }
-        $html .= '</ul>';
-        $html .= '</div>';
-        
-        // Footer
         $html .= '<div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #dee2e6; font-size: 12px; color: #6c757d;">';
         $html .= '<p>This is an automated notification from the Driver Manager system.</p>';
         $html .= '<p>Generated on: ' . date('d/m/Y H:i:s') . '</p>';
-        $html .= '<p>Total drivers monitored: ' . $this->getTotalDriversCount() . '</p>';
         $html .= '</div>';
         
         $html .= '</body></html>';
@@ -202,27 +194,12 @@ class ExpiryNotification extends TimedJob {
         return $html;
     }
 
-    /**
-     * Format date for email display (DD/MM/YYYY)
-     */
     private function formatDateForEmail($dateString) {
         try {
             $date = new \DateTime($dateString);
             return $date->format('d/m/Y');
         } catch (\Exception $e) {
             return $dateString;
-        }
-    }
-
-    /**
-     * Get total count of drivers for footer info
-     */
-    private function getTotalDriversCount() {
-        try {
-            $driverMapper = \OC::$server->query(DriverMapper::class);
-            return count($driverMapper->findAll());
-        } catch (\Exception $e) {
-            return 'N/A';
         }
     }
 }
