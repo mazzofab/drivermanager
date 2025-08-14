@@ -419,9 +419,11 @@
             if (driver) {
                 $('#form-title').text('Edit Driver');
                 $('#driver-id').val(driver.id);
-                $('#name').val(driver.name);
-                $('#surname').val(driver.surname);
-                $('#license-number').val(driver.licenseNumber);
+                
+                // Apply sanitization when loading existing driver data
+                $('#name').val(this.capitalizeWords(driver.name || ''));
+                $('#surname').val(this.capitalizeWords(driver.surname || ''));
+                $('#license-number').val((driver.licenseNumber || '').toUpperCase());
                 
                 var displayDate = this.formatDateForDisplay(new Date(driver.licenseExpiry));
                 $('#license-expiry').val(displayDate);
