@@ -26,8 +26,70 @@
                 self.saveDriver();
             });
             
+            // Add input formatting for names and license number
+            this.initInputFormatting();
             this.initCustomDatePicker();
             this.loadDrivers();
+        },
+
+        // Initialize input formatting for auto-capitalization
+        initInputFormatting: function() {
+            // Capitalize first letter of each word for names
+            $('#name, #surname').on('input', function() {
+                var value = $(this).val();
+                // Capitalize first letter of each word
+                var capitalized = value.replace(/\b\w+/g, function(word) {
+                    return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+                });
+                $(this).val(capitalized);
+            });
+
+            // Convert license number to uppercase
+            $('#license-number').on('input', function() {
+                var value = $(this).val().toUpperCase();
+                $(this).val(value);
+            });
+
+            // Optional: Add input validation/formatting for license number
+            $('#license-number').on('keypress', function(e) {
+                // Allow alphanumeric characters only
+                var char = String.fromCharCode(e.which);
+                if (!/[a-zA-Z0-9]/.test(char)) {
+                    e.preventDefault();
+                }
+            });
+
+            // Optional: Limit license number length
+            $('#license-number').on('input', function() {
+                var value = $(this).val();
+                if (value.length > 20) { // Adjust max length as needed
+                    $(this).val(value.substring(0, 20));
+                }
+            });
+        },
+
+        // Sanitize and format data before saving
+        sanitizeFormData: function() {
+            // Get raw values
+            var name = $('#name').val().trim();
+            var surname = $('#surname').val().trim();
+            var licenseNumber = $('#license-number').val().trim();
+
+            // Apply formatting
+            return {
+                name: this.capitalizeWords(name),
+                surname: this.capitalizeWords(surname),
+                licenseNumber: licenseNumber.toUpperCase(),
+                licenseExpiry: $('#license-expiry').val().trim()
+            };
+        },
+
+        // Capitalize first letter of each word
+        capitalizeWords: function(str) {
+            if (!str) return '';
+            return str.replace(/\b\w+/g, function(word) {
+                return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+            });
         },
 
         // Initialize custom datepicker
@@ -285,24 +347,23 @@
         },
 
         saveDriver: function() {
-            var expiryDate = $('#license-expiry').val();
+            // Use sanitized and formatted data
+            var formData = this.sanitizeFormData();
             
-            if (!this.isValidDateFormat(expiryDate)) {
+            // Validate all fields
+            if (!formData.name || !formData.surname || !formData.licenseNumber || !formData.licenseExpiry) {
+                OC.Notification.showTemporary('Please fill in all fields');
+                return;
+            }
+
+            // Validate date format
+            if (!this.isValidDateFormat(formData.licenseExpiry)) {
                 OC.Notification.showTemporary('Please select a valid expiry date');
                 return;
             }
-            
-            var formData = {
-                name: $('#name').val(),
-                surname: $('#surname').val(),
-                licenseNumber: $('#license-number').val(),
-                licenseExpiry: this.convertToBackendFormat(expiryDate)
-            };
-            
-            if (!formData.name || !formData.surname || !formData.licenseNumber || !formData.licenseExpiry) {
-                OC.Notification.showTemporary('Please fill in all fields correctly');
-                return;
-            }
+
+            // Convert date for backend
+            formData.licenseExpiry = this.convertToBackendFormat(formData.licenseExpiry);
             
             var driverId = $('#driver-id').val();
             var url = driverId ? this.baseUrl + '/' + driverId : this.baseUrl;
@@ -317,8 +378,17 @@
                 self.hideForm();
                 self.loadDrivers();
                 OC.Notification.showTemporary('Driver saved successfully');
-            }).fail(function() {
-                OC.Notification.showTemporary('Error saving driver');
+            }).fail(function(xhr) {
+                var errorMsg = 'Error saving driver';
+                try {
+                    var response = JSON.parse(xhr.responseText);
+                    if (response.error) {
+                        errorMsg += ': ' + response.error;
+                    }
+                } catch (e) {
+                    // Use default error message
+                }
+                OC.Notification.showTemporary(errorMsg);
             });
         },
 

@@ -11,15 +11,16 @@
                 <input type="hidden" id="driver-id" value="">
                 <div class="form-group">
                     <label for="name">Name:</label>
-                    <input type="text" id="name" name="name" required>
+                    <input type="text" id="name" name="name" placeholder="e.g., Marco" required>
                 </div>
                 <div class="form-group">
                     <label for="surname">Surname:</label>
-                    <input type="text" id="surname" name="surname" required>
+                    <input type="text" id="surname" name="surname" placeholder="e.g., Rossi" required>
                 </div>
                 <div class="form-group">
                     <label for="license-number">License Number:</label>
-                    <input type="text" id="license-number" name="licenseNumber" required>
+                    <input type="text" id="license-number" name="licenseNumber" placeholder="e.g., MI123456A" required>
+                    <small>Letters and numbers only, automatically converted to uppercase</small>
                 </div>
                 <div class="form-group">
                     <label for="license-expiry">License Expiry Date:</label>
