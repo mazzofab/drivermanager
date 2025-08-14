@@ -27,6 +27,58 @@
             this.loadDrivers();
         },
 
+        // Format date for display based on browser locale
+        formatDateForDisplay: function(dateString) {
+            if (!dateString) return '';
+            
+            try {
+                var date = new Date(dateString);
+                // Use browser's locale for formatting
+                return date.toLocaleDateString(navigator.language || 'en-US', {
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit'
+                });
+            } catch (e) {
+                console.warn('Date formatting error:', e);
+                return dateString; // Fallback to original string
+            }
+        },
+
+        // Convert date from display format back to YYYY-MM-DD for form input
+        formatDateForInput: function(dateString) {
+            if (!dateString) return '';
+            
+            try {
+                var date = new Date(dateString);
+                return date.toISOString().split('T')[0]; // Returns YYYY-MM-DD
+            } catch (e) {
+                console.warn('Date input formatting error:', e);
+                return dateString;
+            }
+        },
+
+        // Get localized status text
+        getLocalizedStatus: function(daysUntilExpiry) {
+            // You can add translation support here later
+            if (daysUntilExpiry <= 0) {
+                return {
+                    text: 'Expired',
+                    class: 'status-expired'
+                };
+            } else if (daysUntilExpiry <= 30) {
+                return {
+                    text: 'Expiring Soon',
+                    class: 'status-warning'
+                };
+            } else {
+                return {
+                    text: 'Valid',
+                    class: 'status-valid'
+                };
+            }
+        },
+
         showForm: function(driver) {
             if (driver) {
                 $('#form-title').text('Edit Driver');
@@ -34,7 +86,8 @@
                 $('#name').val(driver.name);
                 $('#surname').val(driver.surname);
                 $('#license-number').val(driver.licenseNumber);
-                $('#license-expiry').val(driver.licenseExpiry);
+                // Convert to YYYY-MM-DD format for date input
+                $('#license-expiry').val(this.formatDateForInput(driver.licenseExpiry));
             } else {
                 $('#form-title').text('Add New Driver');
                 $('#driver-form-element')[0].reset();
@@ -53,6 +106,8 @@
             $.get(this.baseUrl).done(function(drivers) {
                 self.drivers = drivers;
                 self.renderDrivers();
+            }).fail(function() {
+                OC.Notification.showTemporary('Failed to load drivers');
             });
         },
 
@@ -66,23 +121,17 @@
                 var today = new Date();
                 var daysUntilExpiry = Math.ceil((expiryDate - today) / (1000 * 60 * 60 * 24));
                 
-                var status = 'Valid';
-                var statusClass = 'status-valid';
+                var statusInfo = self.getLocalizedStatus(daysUntilExpiry);
                 
-                if (daysUntilExpiry <= 0) {
-                    status = 'Expired';
-                    statusClass = 'status-expired';
-                } else if (daysUntilExpiry <= 30) {
-                    status = 'Expiring Soon';
-                    statusClass = 'status-warning';
-                }
+                // Format the expiry date for display
+                var displayDate = self.formatDateForDisplay(driver.licenseExpiry);
                 
                 var row = $('<tr>');
                 row.append($('<td>').text(driver.name));
                 row.append($('<td>').text(driver.surname));
                 row.append($('<td>').text(driver.licenseNumber));
-                row.append($('<td>').text(driver.licenseExpiry));
-                row.append($('<td>').html('<span class="status ' + statusClass + '">' + status + '</span>'));
+                row.append($('<td>').text(displayDate)); // Localized date display
+                row.append($('<td>').html('<span class="status ' + statusInfo.class + '">' + statusInfo.text + '</span>'));
                 row.append($('<td>').html(
                     '<button class="edit-btn" data-id="' + driver.id + '">Edit</button> ' +
                     '<button class="delete-btn" data-id="' + driver.id + '">Delete</button>'
@@ -91,15 +140,20 @@
                 tbody.append(row);
             });
             
-            $('.edit-btn').on('click', function() {
+            // Remove previous event handlers to prevent duplicates
+            $('.edit-btn').off('click').on('click', function() {
                 var driverId = $(this).data('id');
                 var driver = self.drivers.find(d => d.id == driverId);
-                self.showForm(driver);
+                if (driver) {
+                    self.showForm(driver);
+                } else {
+                    OC.Notification.showTemporary('Driver not found');
+                }
             });
             
-            $('.delete-btn').on('click', function() {
+            $('.delete-btn').off('click').on('click', function() {
                 var driverId = $(this).data('id');
-                if (confirm('Are you sure you want to delete this driver?')) {
+                if (driverId && confirm('Are you sure you want to delete this driver?')) {
                     self.deleteDriver(driverId);
                 }
             });
@@ -110,8 +164,14 @@
                 name: $('#name').val(),
                 surname: $('#surname').val(),
                 licenseNumber: $('#license-number').val(),
-                licenseExpiry: $('#license-expiry').val()
+                licenseExpiry: $('#license-expiry').val() // This is already in YYYY-MM-DD format from input
             };
+            
+            // Basic validation
+            if (!formData.name || !formData.surname || !formData.licenseNumber || !formData.licenseExpiry) {
+                OC.Notification.showTemporary('Please fill in all fields');
+                return;
+            }
             
             var driverId = $('#driver-id').val();
             var url = driverId ? this.baseUrl + '/' + driverId : this.baseUrl;
@@ -126,12 +186,26 @@
                 self.hideForm();
                 self.loadDrivers();
                 OC.Notification.showTemporary('Driver saved successfully');
-            }).fail(function() {
-                OC.Notification.showTemporary('Error saving driver');
+            }).fail(function(xhr) {
+                var errorMsg = 'Error saving driver';
+                try {
+                    var response = JSON.parse(xhr.responseText);
+                    if (response.error) {
+                        errorMsg += ': ' + response.error;
+                    }
+                } catch (e) {
+                    // Use default error message
+                }
+                OC.Notification.showTemporary(errorMsg);
             });
         },
 
         deleteDriver: function(id) {
+            if (!id) {
+                OC.Notification.showTemporary('Invalid driver ID');
+                return;
+            }
+            
             var self = this;
             $.ajax({
                 url: this.baseUrl + '/' + id,
@@ -139,8 +213,17 @@
             }).done(function() {
                 self.loadDrivers();
                 OC.Notification.showTemporary('Driver deleted successfully');
-            }).fail(function() {
-                OC.Notification.showTemporary('Error deleting driver');
+            }).fail(function(xhr) {
+                var errorMsg = 'Error deleting driver';
+                try {
+                    var response = JSON.parse(xhr.responseText);
+                    if (response.error) {
+                        errorMsg += ': ' + response.error;
+                    }
+                } catch (e) {
+                    // Use default error message
+                }
+                OC.Notification.showTemporary(errorMsg);
             });
         }
     };
