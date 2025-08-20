@@ -9,6 +9,7 @@ use OCP\IConfig;
 use OCP\IGroupManager;
 use OCP\IUserManager;
 use OCP\Mail\IMailer;
+use OCP\Notification\IManager as INotificationManager;
 use Psr\Log\LoggerInterface;
 use OCP\AppFramework\Utility\ITimeFactory;
 
@@ -18,6 +19,7 @@ class ExpiryNotification extends TimedJob {
     private IGroupManager $groupManager;
     private IUserManager $userManager;
     private LoggerInterface $logger;
+    private INotificationManager $notificationManager;
 
     public function __construct(
         ITimeFactory $timeFactory,
@@ -25,7 +27,8 @@ class ExpiryNotification extends TimedJob {
         ?IConfig $config = null,
         ?IGroupManager $groupManager = null,
         ?IUserManager $userManager = null,
-        ?LoggerInterface $logger = null
+        ?LoggerInterface $logger = null,
+        ?INotificationManager $notificationManager = null
     ) {
         // Call parent constructor first to initialize the $time property
         parent::__construct($timeFactory);
@@ -40,6 +43,7 @@ class ExpiryNotification extends TimedJob {
         $this->groupManager = $groupManager ?? \OC::$server->getGroupManager();
         $this->userManager = $userManager ?? \OC::$server->getUserManager();
         $this->logger = $logger ?? \OC::$server->get(LoggerInterface::class);
+        $this->notificationManager = $notificationManager ?? \OC::$server->getNotificationManager();
     }
 
     /**
@@ -67,11 +71,16 @@ class ExpiryNotification extends TimedJob {
                     "Found " . count($expiringDrivers) . " drivers expiring within 30 days",
                     ['app' => 'drivermanager']
                 );
+                
+                // Send email notifications
                 $this->sendGroupEmail($expiringDrivers);
                 
-                // Update last run date after successful email
+                // Send push notifications to mobile apps
+                $this->sendPushNotifications($expiringDrivers);
+                
+                // Update last run date after successful notifications
                 $this->config->setAppValue('drivermanager', $lastRunKey, $today);
-                $this->logger->info('Successfully sent notifications and updated last run date', ['app' => 'drivermanager']);
+                $this->logger->info('Successfully sent email and push notifications and updated last run date', ['app' => 'drivermanager']);
             } else {
                 $this->logger->info("No drivers found expiring within 30 days", ['app' => 'drivermanager']);
                 // Still update last run date even if no drivers found
@@ -83,6 +92,158 @@ class ExpiryNotification extends TimedJob {
                 ['app' => 'drivermanager', 'exception' => $e]
             );
         }
+    }
+
+    /**
+     * Send push notifications to mobile app users
+     * @param \stdClass[] $drivers
+     */
+    private function sendPushNotifications(array $drivers): void {
+        try {
+            // Get the "driver notifications" group
+            $group = $this->groupManager->get('driver notifications');
+
+            if (!$group) {
+                $this->logger->warning(
+                    'Group "driver notifications" not found for push notifications',
+                    ['app' => 'drivermanager']
+                );
+                return;
+            }
+
+            // Get all users in the group
+            $groupUsers = $group->getUsers();
+
+            if (empty($groupUsers)) {
+                $this->logger->warning(
+                    'No users found in "driver notifications" group for push notifications',
+                    ['app' => 'drivermanager']
+                );
+                return;
+            }
+
+            // Count different urgency levels
+            $expired = count(array_filter($drivers, function ($d) {
+                return $d->urgency === 'expired';
+            }));
+            $critical = count(array_filter($drivers, function ($d) {
+                return $d->urgency === 'critical';
+            }));
+            $urgent = count(array_filter($drivers, function ($d) {
+                return $d->urgency === 'urgent';
+            }));
+            $warning = count(array_filter($drivers, function ($d) {
+                return $d->urgency === 'warning';
+            }));
+
+            // Prepare notification message
+            $subject = '';
+            $message = '';
+            $richMessage = '';
+            
+            if ($expired > 0) {
+                $subject = 'driver_licenses_expired';
+                $message = "{$expired} driver license" . ($expired > 1 ? 's have' : ' has') . " EXPIRED!";
+                $richMessage = "🚨 CRITICAL: {$expired} license" . ($expired > 1 ? 's' : '') . " expired";
+            } elseif ($critical > 0) {
+                $subject = 'driver_licenses_critical';
+                $message = "{$critical} driver license" . ($critical > 1 ? 's expire' : ' expires') . " within 24 hours!";
+                $richMessage = "🚨 URGENT: {$critical} license" . ($critical > 1 ? 's expire' : ' expires') . " in 24h";
+            } elseif ($urgent > 0) {
+                $subject = 'driver_licenses_urgent';
+                $message = "{$urgent} driver license" . ($urgent > 1 ? 's expire' : ' expires') . " within 7 days";
+                $richMessage = "⚠️ WARNING: {$urgent} license" . ($urgent > 1 ? 's expire' : ' expires') . " this week";
+            } else {
+                $subject = 'driver_licenses_warning';
+                $message = "{$warning} driver license" . ($warning > 1 ? 's expire' : ' expires') . " within 30 days";
+                $richMessage = "📢 NOTICE: {$warning} license" . ($warning > 1 ? 's expire' : ' expires') . " this month";
+            }
+
+            // Get first few driver names for the message
+            $driverNames = array_slice(array_map(function($d) {
+                return $d->name . ' ' . $d->surname;
+            }, $drivers), 0, 3);
+            
+            if (count($drivers) > 3) {
+                $driverNames[] = 'and ' . (count($drivers) - 3) . ' more';
+            }
+
+            // Send notification to each user in the group
+            $sentCount = 0;
+            foreach ($groupUsers as $user) {
+                try {
+                    $notification = $this->notificationManager->createNotification();
+                    
+                    $notification->setApp('drivermanager')
+                        ->setUser($user->getUID())
+                        ->setDateTime(new \DateTime())
+                        ->setObject('drivers', 'expiring_' . date('Y-m-d'))
+                        ->setSubject($subject, [
+                            'count' => count($drivers),
+                            'expired' => $expired,
+                            'critical' => $critical,
+                            'urgent' => $urgent,
+                            'warning' => $warning
+                        ]);
+                    
+                    // Set the message with driver details
+                    $notification->setMessage('driver_expiry_details', [
+                        'message' => $message,
+                        'drivers' => implode(', ', $driverNames)
+                    ]);
+                    
+                    // Set rich subject (for better mobile display)
+                    $notification->setRichSubject($richMessage);
+                    $notification->setRichMessage('{message}: {drivers}', [
+                        'message' => $message,
+                        'drivers' => implode(', ', $driverNames)
+                    ]);
+                    
+                    // Set icon (optional, will use app icon by default)
+                    $notification->setIcon($this->getNotificationIcon($expired, $critical, $urgent));
+                    
+                    // Add action to view in Driver Manager
+                    $action = $notification->createAction();
+                    $action->setLabel('view')
+                        ->setLink('/apps/drivermanager/', 'GET');
+                    $notification->addAction($action);
+                    
+                    // Send the notification
+                    $this->notificationManager->notify($notification);
+                    $sentCount++;
+                    
+                    $this->logger->debug(
+                        "Sent push notification to user: {$user->getUID()}",
+                        ['app' => 'drivermanager']
+                    );
+                } catch (\Exception $e) {
+                    $this->logger->error(
+                        "Failed to send push notification to user {$user->getUID()}: " . $e->getMessage(),
+                        ['app' => 'drivermanager', 'exception' => $e]
+                    );
+                }
+            }
+
+            $this->logger->info(
+                "Successfully sent push notifications to {$sentCount} users for " . count($drivers) . " expiring drivers",
+                ['app' => 'drivermanager']
+            );
+        } catch (\Exception $e) {
+            $this->logger->error(
+                'Failed to send push notifications: ' . $e->getMessage(),
+                ['app' => 'drivermanager', 'exception' => $e]
+            );
+        }
+    }
+
+    /**
+     * Get appropriate icon based on urgency
+     */
+    private function getNotificationIcon(int $expired, int $critical, int $urgent): string {
+        if ($expired > 0 || $critical > 0) {
+            return \OC::$server->getURLGenerator()->imagePath('drivermanager', 'app-dark.svg');
+        }
+        return \OC::$server->getURLGenerator()->imagePath('drivermanager', 'app.svg');
     }
 
     /**
@@ -411,6 +572,7 @@ class ExpiryNotification extends TimedJob {
         $html .= '<div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #dee2e6; font-size: 12px; color: #6c757d;">';
         $html .= '<p><strong>Driver Manager System</strong> - Automated License Expiry Notification</p>';
         $html .= '<p>This is a daily notification sent to members of the "driver notifications" group.</p>';
+        $html .= '<p>Push notifications have also been sent to mobile app users.</p>';
         $html .= '<p>To stop receiving these notifications, ask your administrator to remove you from the group.</p>';
         $html .= '</div>';
 
