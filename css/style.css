@@ -1,0 +1,385 @@
+#driver-manager {
+    padding: 20px;
+}
+
+.form-group {
+    margin-bottom: 15px;
+    position: relative;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: bold;
+}
+
+.form-group input {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+/* Date input wrapper styles */
+.date-input-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.date-input-wrapper input {
+    flex: 1;
+    margin-right: 0;
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+    border-right: none;
+}
+
+.date-picker-button {
+    background: #0082c9;
+    color: white;
+    border: 1px solid #0082c9;
+    border-left: none;
+    border-top-right-radius: 4px;
+    border-bottom-right-radius: 4px;
+    padding: 8px 12px;
+    cursor: pointer;
+    font-size: 16px;
+    transition: background-color 0.3s;
+}
+
+.date-picker-button:hover {
+    background: #005577;
+}
+
+/* Custom Datepicker Styles */
+.datepicker-popup {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    z-index: 1000;
+    width: 280px;
+    padding: 10px;
+    margin-top: 2px;
+}
+
+.datepicker-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+    padding: 0 5px;
+}
+
+.datepicker-nav {
+    background: none;
+    border: none;
+    font-size: 18px;
+    cursor: pointer;
+    padding: 5px 10px;
+    border-radius: 3px;
+    color: #0082c9;
+}
+
+.datepicker-nav:hover {
+    background: #f0f0f0;
+}
+
+.datepicker-header span {
+    font-weight: bold;
+    color: #333;
+}
+
+.datepicker-weekdays {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 2px;
+    margin-bottom: 5px;
+}
+
+.datepicker-weekdays span {
+    text-align: center;
+    font-size: 12px;
+    font-weight: bold;
+    color: #666;
+    padding: 5px;
+}
+
+.datepicker-days {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 2px;
+}
+
+.datepicker-day {
+    text-align: center;
+    padding: 8px 4px;
+    cursor: pointer;
+    border-radius: 3px;
+    font-size: 14px;
+    transition: background-color 0.2s;
+}
+
+.datepicker-day:hover {
+    background: #e3f2fd;
+}
+
+.datepicker-day.other-month {
+    color: #ccc;
+}
+
+.datepicker-day.today {
+    background: #fff3cd;
+    font-weight: bold;
+}
+
+.datepicker-day.selected {
+    background: #0082c9;
+    color: white;
+}
+
+.datepicker-day.past {
+    color: #ccc;
+    cursor: not-allowed;
+}
+
+.form-group small {
+    display: block;
+    margin-top: 5px;
+    color: #666;
+    font-size: 12px;
+}
+
+.form-buttons {
+    margin-top: 20px;
+}
+
+.form-buttons button {
+    margin-right: 10px;
+}
+
+#drivers-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+}
+
+#drivers-table th,
+#drivers-table td {
+    padding: 10px;
+    text-align: left;
+    border-bottom: 1px solid #ddd;
+}
+
+#drivers-table th {
+    background-color: #f5f5f5;
+    font-weight: bold;
+}
+
+.status {
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: bold;
+}
+
+.status-valid {
+    background-color: #d4edda;
+    color: #155724;
+}
+
+.status-warning {
+    background-color: #fff3cd;
+    color: #856404;
+}
+
+.status-expired {
+    background-color: #f8d7da;
+    color: #721c24;
+}
+
+.edit-btn, .delete-btn {
+    padding: 4px 8px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    margin-right: 5px;
+}
+
+.edit-btn {
+    background-color: #007bff;
+    color: white;
+}
+
+.delete-btn {
+    background-color: #dc3545;
+    color: white;
+}
+
+.edit-btn:hover {
+    background-color: #0056b3;
+}
+
+.delete-btn:hover {
+    background-color: #c82333;
+}
+
+/* Search and Controls */
+.controls-section {
+    margin-bottom: 20px;
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 8px;
+    border: 1px solid #e9ecef;
+}
+
+.search-controls {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    margin-bottom: 15px;
+    flex-wrap: wrap;
+}
+
+.search-box {
+    display: flex;
+    align-items: center;
+    flex: 1;
+    min-width: 300px;
+    position: relative;
+}
+
+#search-input {
+    flex: 1;
+    padding: 10px 15px;
+    border: 2px solid #ddd;
+    border-radius: 25px;
+    font-size: 14px;
+    transition: border-color 0.3s;
+    margin: 0;
+}
+
+#search-input:focus {
+    outline: none;
+    border-color: #0082c9;
+}
+
+.search-button, .clear-button {
+    background: #0082c9;
+    color: white;
+    border: none;
+    padding: 10px 15px;
+    margin-left: 10px;
+    border-radius: 20px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background-color 0.3s;
+}
+
+.search-button:hover, .clear-button:hover {
+    background: #005577;
+}
+
+.clear-button {
+    background: #dc3545;
+    padding: 8px 12px;
+}
+
+.clear-button:hover {
+    background: #c82333;
+}
+
+/* Results and Pagination */
+.results-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+#results-count {
+    font-weight: bold;
+    color: #666;
+}
+
+.pagination-controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.page-btn {
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    padding: 6px 12px;
+    cursor: pointer;
+    border-radius: 4px;
+    font-size: 14px;
+    transition: all 0.3s;
+}
+
+.page-btn:hover:not(:disabled) {
+    background: #e9ecef;
+}
+
+.page-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+#page-info {
+    font-weight: bold;
+    color: #495057;
+    white-space: nowrap;
+}
+
+.page-size-select {
+    padding: 6px 10px;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    font-size: 14px;
+    background: white;
+}
+
+/* Loading and No Results */
+#loading-indicator {
+    text-align: center;
+    padding: 40px;
+    color: #666;
+}
+
+#no-results {
+    text-align: center;
+    padding: 40px;
+    color: #666;
+    font-style: italic;
+}
+
+/* Table responsiveness */
+@media (max-width: 768px) {
+    .search-controls {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .search-box {
+        min-width: auto;
+    }
+    
+    .results-info {
+        flex-direction: column;
+        align-items: stretch;
+        text-align: center;
+    }
+    
+    .pagination-controls {
+        justify-content: center;
+    }
+}
