@@ -12,20 +12,24 @@ use OCP\IRequest;
 use OCP\IUserSession;
 use OCA\DriverManager\Db\Driver;
 use OCA\DriverManager\Db\DriverMapper;
+use Psr\Log\LoggerInterface;
 
 class DriverController extends Controller {
     private DriverMapper $mapper;
     private IUserSession $userSession;
+    private LoggerInterface $logger;
     private ?string $userId;
 
     public function __construct(
         IRequest $request,
         DriverMapper $mapper,
-        IUserSession $userSession
+        IUserSession $userSession,
+        LoggerInterface $logger
     ) {
         parent::__construct('drivermanager', $request);
         $this->mapper = $mapper;
         $this->userSession = $userSession;
+        $this->logger = $logger;
         
         $user = $this->userSession->getUser();
         $this->userId = $user ? $user->getUID() : null;
@@ -88,7 +92,7 @@ class DriverController extends Controller {
             return new DataResponse(['success' => true, 'message' => 'Driver deleted successfully']);
             
         } catch (\Exception $e) {
-            \OC::$server->getLogger()->error(
+            $this->logger->error(
                 'Error deleting driver: ' . $e->getMessage(),
                 ['app' => 'drivermanager']
             );

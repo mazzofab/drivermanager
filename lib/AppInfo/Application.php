@@ -8,6 +8,7 @@ use OCP\AppFramework\App;
 use OCP\AppFramework\Bootstrap\IBootContext;
 use OCP\AppFramework\Bootstrap\IBootstrap;
 use OCP\AppFramework\Bootstrap\IRegistrationContext;
+use Psr\Log\LoggerInterface;
 
 class Application extends App implements IBootstrap {
     public const APP_ID = 'drivermanager';
@@ -26,8 +27,9 @@ class Application extends App implements IBootstrap {
             $jobList = \OC::$server->getJobList();
             $jobList->add(\OCA\DriverManager\BackgroundJob\ExpiryNotification::class);
             
-            // Log registration for debugging
-            \OC::$server->getLogger()->debug(
+            // Log registration for debugging - using the new PSR-3 logger
+            $logger = \OC::$server->get(LoggerInterface::class);
+            $logger->debug(
                 'DriverManager: ExpiryNotification job registered',
                 ['app' => self::APP_ID]
             );
