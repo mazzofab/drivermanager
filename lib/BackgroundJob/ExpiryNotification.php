@@ -83,12 +83,12 @@ class ExpiryNotification extends TimedJob {
         $this->logger->info('Running driver license expiry check for ' . $today . ($isTest ? ' (TEST MODE)' : ''), ['app' => 'drivermanager']);
 
         try {
-            // Get all drivers expiring within the next 30 days
-            $expiringDrivers = $this->getDriversExpiringWithin30Days();
+            // Get all drivers expiring within the next 30 days OR already expired
+            $expiringDrivers = $this->getDriversExpiringOrExpired();
 
             if (!empty($expiringDrivers)) {
                 $this->logger->info(
-                    "Found " . count($expiringDrivers) . " drivers expiring within 30 days",
+                    "Found " . count($expiringDrivers) . " drivers expiring within 30 days or already expired",
                     ['app' => 'drivermanager']
                 );
                 
@@ -105,7 +105,7 @@ class ExpiryNotification extends TimedJob {
                 
                 $this->logger->info('Successfully sent email and push notifications' . ($isTest ? ' (TEST MODE)' : '') . ' and updated last run date', ['app' => 'drivermanager']);
             } else {
-                $this->logger->info("No drivers found expiring within 30 days", ['app' => 'drivermanager']);
+                $this->logger->info("No drivers found expiring within 30 days or already expired", ['app' => 'drivermanager']);
                 // Still update last run date even if no drivers found (only if not a test)
                 if (!$isTest) {
                     $this->config->setAppValue('drivermanager', $lastRunKey, $today);
@@ -167,7 +167,7 @@ class ExpiryNotification extends TimedJob {
                 return $d->urgency === 'warning';
             }));
 
-            // Prepare notification message
+            // Prepare notification message - prioritize expired licenses
             $subject = '';
             $message = '';
             $richMessage = '';
@@ -261,7 +261,7 @@ class ExpiryNotification extends TimedJob {
             }
 
             $this->logger->info(
-                "Push notification summary: {$sentCount} sent successfully, {$failedCount} failed, for " . count($drivers) . " expiring drivers",
+                "Push notification summary: {$sentCount} sent successfully, {$failedCount} failed, for " . count($drivers) . " expiring/expired drivers",
                 ['app' => 'drivermanager']
             );
             
@@ -274,29 +274,32 @@ class ExpiryNotification extends TimedJob {
     }
 
     /**
-     * Get appropriate icon based on urgency
-     */
-    private function getNotificationIcon(int $expired, int $critical, int $urgent): string {
-        // Just use the default app icon that exists
-        // The app.svg file is in the img folder
-        return \OC::$server->getURLGenerator()->imagePath('drivermanager', 'app.svg');
-    }
-
-    /**
-     * Get all drivers with licenses expiring within the next 30 days
+     * Get all drivers with licenses expiring within the next 30 days OR already expired
      * @return \stdClass[]
      */
-    private function getDriversExpiringWithin30Days(): array {
+    private function getDriversExpiringOrExpired(): array {
         try {
             $connection = \OC::$server->getDatabaseConnection();
             $today = new \DateTime();
             $thirtyDaysFromNow = (new \DateTime())->add(new \DateInterval('P30D'));
-
+            
+            // Get drivers that are either:
+            // 1. Already expired (license_expiry < today)
+            // 2. Expiring within 30 days (license_expiry between today and 30 days from now)
             $qb = $connection->getQueryBuilder();
             $qb->select('*')
                 ->from('drivermanager_drivers')
-                ->where($qb->expr()->gte('license_expiry', $qb->createNamedParameter($today->format('Y-m-d'))))
-                ->andWhere($qb->expr()->lte('license_expiry', $qb->createNamedParameter($thirtyDaysFromNow->format('Y-m-d'))))
+                ->where(
+                    $qb->expr()->orX(
+                        // Already expired
+                        $qb->expr()->lt('license_expiry', $qb->createNamedParameter($today->format('Y-m-d'))),
+                        // Expiring within 30 days
+                        $qb->expr()->andX(
+                            $qb->expr()->gte('license_expiry', $qb->createNamedParameter($today->format('Y-m-d'))),
+                            $qb->expr()->lte('license_expiry', $qb->createNamedParameter($thirtyDaysFromNow->format('Y-m-d')))
+                        )
+                    )
+                )
                 ->orderBy('license_expiry', 'ASC')
                 ->addOrderBy('surname', 'ASC')
                 ->addOrderBy('name', 'ASC');
@@ -322,19 +325,23 @@ class ExpiryNotification extends TimedJob {
                 $expiryDate->setTime(0, 0, 0);
                 
                 $diff = $today->diff($expiryDate);
-                $driver->daysUntilExpiry = $diff->days;
 
-                // Handle past dates (expired licenses)
+                // Handle past dates (expired licenses) and future dates
                 if ($expiryDate < $today) {
                     $driver->daysUntilExpiry = -$diff->days; // Negative for expired
-                } elseif (!$diff->invert) {
+                } else {
                     $driver->daysUntilExpiry = $diff->days;
                 }
 
-                // Determine urgency level
+                // Determine urgency level - prioritize expired licenses
                 if ($driver->daysUntilExpiry < 0) {
                     $driver->urgency = 'expired';
-                    $driver->urgencyText = 'EXPIRED ' . abs($driver->daysUntilExpiry) . ' days ago';
+                    $daysPast = abs($driver->daysUntilExpiry);
+                    if ($daysPast === 1) {
+                        $driver->urgencyText = 'EXPIRED YESTERDAY';
+                    } else {
+                        $driver->urgencyText = 'EXPIRED ' . $daysPast . ' DAYS AGO';
+                    }
                 } elseif ($driver->daysUntilExpiry === 0) {
                     $driver->urgency = 'critical';
                     $driver->urgencyText = 'EXPIRES TODAY';
@@ -355,7 +362,7 @@ class ExpiryNotification extends TimedJob {
             return $expiringDrivers;
         } catch (\Exception $e) {
             $this->logger->error(
-                'Error fetching expiring drivers: ' . $e->getMessage(),
+                'Error fetching expiring/expired drivers: ' . $e->getMessage(),
                 ['app' => 'drivermanager', 'exception' => $e]
             );
             return [];
@@ -431,7 +438,7 @@ class ExpiryNotification extends TimedJob {
             $this->mailer->send($message);
 
             $this->logger->info(
-                "Successfully sent expiry notification email to " . count($recipients) . " recipients for " . count($drivers) . " expiring drivers",
+                "Successfully sent expiry notification email to " . count($recipients) . " recipients for " . count($drivers) . " expiring/expired drivers",
                 ['app' => 'drivermanager']
             );
         } catch (\Exception $e) {
@@ -458,6 +465,7 @@ class ExpiryNotification extends TimedJob {
             return $d->urgency === 'urgent';
         }));
 
+        // Prioritize expired licenses in the subject
         if ($expired > 0) {
             return "🚨 CRITICAL: {$expired} driver license" . ($expired > 1 ? 's have' : ' has') . " EXPIRED";
         } elseif ($critical > 0) {
@@ -497,12 +505,12 @@ class ExpiryNotification extends TimedJob {
         $html .= '<p style="margin: 5px 0 0 0; color: #666;">Generated on ' . date('d/m/Y H:i:s') . '</p>';
         $html .= '</div>';
 
-        // Summary section
+        // Summary section with enhanced expired license visibility
         $html .= '<div style="background-color: #e7f3ff; padding: 15px; border-radius: 5px; margin-bottom: 20px; border-left: 4px solid #007bff;">';
         $html .= '<h3 style="margin-top: 0; color: #004085;">📊 Summary</h3>';
-        $html .= '<p style="margin-bottom: 0;"><strong>Total drivers with expiring licenses:</strong> ' . $total . '</p>';
+        $html .= '<p style="margin-bottom: 0;"><strong>Total drivers requiring attention:</strong> ' . $total . '</p>';
         if (count($expired) > 0) {
-            $html .= '<p style="margin: 5px 0; color: #dc3545;"><strong>🚨 EXPIRED:</strong> ' . count($expired) . '</p>';
+            $html .= '<p style="margin: 5px 0; color: #dc3545; font-size: 16px; font-weight: bold;">💀 EXPIRED: ' . count($expired) . ' - IMMEDIATE ACTION REQUIRED!</p>';
         }
         if (count($critical) > 0) {
             $html .= '<p style="margin: 5px 0; color: #dc3545;"><strong>🚨 Critical (≤1 day):</strong> ' . count($critical) . '</p>';
@@ -515,9 +523,24 @@ class ExpiryNotification extends TimedJob {
         }
         $html .= '</div>';
 
+        // Add special alert for expired licenses
+        if (count($expired) > 0) {
+            $html .= '<div style="background-color: #721c24; color: white; padding: 15px; border-radius: 5px; margin-bottom: 20px; text-align: center;">';
+            $html .= '<h3 style="margin: 0; font-size: 18px;">⚠️ CRITICAL ALERT ⚠️</h3>';
+            $html .= '<p style="margin: 5px 0 0 0; font-size: 16px; font-weight: bold;">';
+            $html .= count($expired) . ' driver' . (count($expired) > 1 ? 's have' : ' has') . ' EXPIRED license' . (count($expired) > 1 ? 's' : '') . '!<br>';
+            $html .= 'These drivers are NOT legally allowed to drive!';
+            $html .= '</p>';
+            $html .= '</div>';
+        }
+
         // Main message
         $html .= '<div style="margin-bottom: 20px;">';
-        $html .= '<p><strong>The following drivers have their driving licenses expiring within the next 30 days:</strong></p>';
+        if (count($expired) > 0) {
+            $html .= '<p><strong>The following drivers have expired licenses or licenses expiring within the next 30 days:</strong></p>';
+        } else {
+            $html .= '<p><strong>The following drivers have their driving licenses expiring within the next 30 days:</strong></p>';
+        }
         $html .= '</div>';
 
         // Drivers table
@@ -537,14 +560,14 @@ class ExpiryNotification extends TimedJob {
         // Table body - grouped by urgency (expired first, then critical, urgent, warning)
         $html .= '<tbody>';
 
-        // Expired drivers first (dark red background)
+        // Expired drivers first (dark red background with enhanced styling)
         foreach ($expired as $driver) {
             $html .= '<tr style="background-color: #721c24; color: white; border-bottom: 1px solid #dee2e6;">';
-            $html .= '<td style="padding: 12px; border: 1px solid #dee2e6; font-weight: bold;">' . htmlspecialchars($driver->name) . '</td>';
-            $html .= '<td style="padding: 12px; border: 1px solid #dee2e6; font-weight: bold;">' . htmlspecialchars($driver->surname) . '</td>';
-            $html .= '<td style="padding: 12px; border: 1px solid #dee2e6; font-family: monospace; font-weight: bold;">' . htmlspecialchars($driver->licenseNumber) . '</td>';
-            $html .= '<td style="padding: 12px; border: 1px solid #dee2e6; font-weight: bold;">' . $this->formatDateForEmail($driver->licenseExpiry) . '</td>';
-            $html .= '<td style="padding: 12px; border: 1px solid #dee2e6; text-align: center; font-weight: bold;">💀 ' . $driver->urgencyText . '</td>';
+            $html .= '<td style="padding: 12px; border: 1px solid #dee2e6; font-weight: bold; font-size: 14px;">' . htmlspecialchars($driver->name) . '</td>';
+            $html .= '<td style="padding: 12px; border: 1px solid #dee2e6; font-weight: bold; font-size: 14px;">' . htmlspecialchars($driver->surname) . '</td>';
+            $html .= '<td style="padding: 12px; border: 1px solid #dee2e6; font-family: monospace; font-weight: bold; font-size: 14px;">' . htmlspecialchars($driver->licenseNumber) . '</td>';
+            $html .= '<td style="padding: 12px; border: 1px solid #dee2e6; font-weight: bold; font-size: 14px;">' . $this->formatDateForEmail($driver->licenseExpiry) . '</td>';
+            $html .= '<td style="padding: 12px; border: 1px solid #dee2e6; text-align: center; font-weight: bold; font-size: 14px;">💀 ' . $driver->urgencyText . '</td>';
             $html .= '</tr>';
         }
 
@@ -584,29 +607,37 @@ class ExpiryNotification extends TimedJob {
         $html .= '</tbody>';
         $html .= '</table>';
 
-        // Action required section
+        // Enhanced Action required section with special focus on expired licenses
         $html .= '<div style="background-color: #e7f3ff; padding: 15px; border-radius: 5px; margin-bottom: 20px; border-left: 4px solid #007bff;">';
         $html .= '<h3 style="margin-top: 0; color: #004085;">🎯 Action Required:</h3>';
         $html .= '<ul style="margin-bottom: 0;">';
         if (count($expired) > 0) {
-            $html .= '<li><strong style="color: #721c24;">EXPIRED LICENSES: Immediate action required - drivers cannot legally drive!</strong></li>';
+            $html .= '<li><strong style="color: #721c24; font-size: 16px;">💀 EXPIRED LICENSES: IMMEDIATE ACTION REQUIRED!</strong></li>';
+            $html .= '<li style="color: #721c24; font-weight: bold;">These drivers CANNOT legally drive and must stop driving immediately!</li>';
+            $html .= '<li style="color: #721c24; font-weight: bold;">Contact these drivers urgently to arrange immediate license renewal!</li>';
         }
         if (count($critical) > 0) {
-            $html .= '<li><strong style="color: #dc3545;">IMMEDIATE ACTION: Contact drivers with licenses expiring within 24 hours!</strong></li>';
+            $html .= '<li><strong style="color: #dc3545;">🚨 CRITICAL: Contact drivers with licenses expiring within 24 hours!</strong></li>';
         }
         if (count($urgent) > 0) {
-            $html .= '<li><strong style="color: #fd7e14;">URGENT: Schedule renewals for drivers expiring within 7 days</strong></li>';
+            $html .= '<li><strong style="color: #fd7e14;">⚠️ URGENT: Schedule renewals for drivers expiring within 7 days</strong></li>';
         }
         $html .= '<li>Contact all drivers to arrange license renewal appointments</li>';
         $html .= '<li>Ensure renewals are completed before expiry dates</li>';
         $html .= '<li>Update the Driver Manager system once renewals are confirmed</li>';
         $html .= '<li>Monitor the system daily for new expiring licenses</li>';
+        if (count($expired) > 0) {
+            $html .= '<li><strong style="color: #721c24;">For expired licenses: Verify driver suspension and alternative transport arrangements</strong></li>';
+        }
         $html .= '</ul>';
         $html .= '</div>';
 
         // Footer
         $html .= '<div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #dee2e6; font-size: 12px; color: #6c757d;">';
         $html .= '<p><strong>Driver Manager System</strong> - Automated License Expiry Notification</p>';
+        if (count($expired) > 0) {
+            $html .= '<p style="color: #721c24; font-weight: bold;">⚠️ This notification includes EXPIRED licenses that require immediate attention!</p>';
+        }
         $html .= '<p>This is a daily notification sent to members of the "driver notifications" group.</p>';
         $html .= '<p>Push notifications have also been sent to mobile app users.</p>';
         $html .= '<p>To stop receiving these notifications, ask your administrator to remove you from the group.</p>';
