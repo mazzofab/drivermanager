@@ -14,6 +14,7 @@
         this.pageSize = 25;
         this.totalDrivers = 0;
         this.searchQuery = '';
+        this.statusFilter = 'all'; // New status filter property
         
         this.init();
     };
@@ -42,6 +43,9 @@
             // Search functionality
             this.initSearch();
             
+            // Status filter functionality
+            this.initStatusFilters();
+            
             // Pagination functionality
             this.initPagination();
             
@@ -50,6 +54,66 @@
             this.initCustomDatePicker();
             
             this.loadDrivers();
+        },
+
+        // Initialize status filter functionality
+        initStatusFilters: function() {
+            var self = this;
+            
+            $('.status-filter-btn').on('click', function() {
+                var status = $(this).data('status');
+                self.setStatusFilter(status);
+            });
+        },
+
+        // Set active status filter
+        setStatusFilter: function(status) {
+            this.statusFilter = status;
+            this.currentPage = 1;
+            
+            // Update active button
+            $('.status-filter-btn').removeClass('active');
+            $('.status-filter-btn[data-status="' + status + '"]').addClass('active');
+            
+            // Filter and render
+            this.filterAndRenderDrivers();
+        },
+
+        // Update status filter counts
+        updateStatusCounts: function() {
+            var self = this;
+            var counts = {
+                all: this.drivers.length,
+                valid: 0,
+                expiring: 0,
+                expired: 0
+            };
+
+            this.drivers.forEach(function(driver) {
+                var status = self.getDriverStatus(driver);
+                counts[status]++;
+            });
+
+            // Update count badges
+            $('#count-all').text(counts.all);
+            $('#count-valid').text(counts.valid);
+            $('#count-expiring').text(counts.expiring);
+            $('#count-expired').text(counts.expired);
+        },
+
+        // Get driver status based on expiry date
+        getDriverStatus: function(driver) {
+            var expiryDate = new Date(driver.licenseExpiry);
+            var today = new Date();
+            var daysUntilExpiry = Math.ceil((expiryDate - today) / (1000 * 60 * 60 * 24));
+            
+            if (daysUntilExpiry <= 0) {
+                return 'expired';
+            } else if (daysUntilExpiry <= 30) {
+                return 'expiring';
+            } else {
+                return 'valid';
+            }
         },
 
         // Test notification system
@@ -173,22 +237,35 @@
             $('#clear-search-btn').hide();
         },
 
-        // Filter drivers based on search query
+        // Filter drivers based on search query and status
         filterDrivers: function() {
-            if (!this.searchQuery) {
-                this.filteredDrivers = this.drivers.slice();
-                return;
+            var self = this;
+            
+            // Start with all drivers
+            var filtered = this.drivers.slice();
+            
+            // Apply search filter
+            if (this.searchQuery) {
+                filtered = filtered.filter(function(driver) {
+                    var name = (driver.name || '').toLowerCase();
+                    var surname = (driver.surname || '').toLowerCase();
+                    var licenseNumber = (driver.licenseNumber || '').toLowerCase();
+                    
+                    return name.includes(self.searchQuery) || 
+                           surname.includes(self.searchQuery) || 
+                           licenseNumber.includes(self.searchQuery);
+                });
             }
             
-            this.filteredDrivers = this.drivers.filter(function(driver) {
-                var name = (driver.name || '').toLowerCase();
-                var surname = (driver.surname || '').toLowerCase();
-                var licenseNumber = (driver.licenseNumber || '').toLowerCase();
-                
-                return name.includes(this.searchQuery) || 
-                       surname.includes(this.searchQuery) || 
-                       licenseNumber.includes(this.searchQuery);
-            }.bind(this));
+            // Apply status filter
+            if (this.statusFilter !== 'all') {
+                filtered = filtered.filter(function(driver) {
+                    var status = self.getDriverStatus(driver);
+                    return status === self.statusFilter;
+                });
+            }
+            
+            this.filteredDrivers = filtered;
         },
 
         // Filter and render drivers
@@ -229,14 +306,33 @@
             
             var text = '';
             if (total === 0) {
-                text = 'No drivers found';
-            } else if (this.searchQuery) {
-                text = 'Showing ' + start + '-' + end + ' of ' + total + ' drivers (filtered)';
+                if (this.statusFilter !== 'all') {
+                    text = 'No ' + this.getStatusDisplayName(this.statusFilter) + ' drivers found';
+                } else {
+                    text = 'No drivers found';
+                }
             } else {
-                text = 'Showing ' + start + '-' + end + ' of ' + total + ' drivers';
+                var filterText = '';
+                if (this.statusFilter !== 'all') {
+                    filterText = ' (' + this.getStatusDisplayName(this.statusFilter) + ')';
+                }
+                if (this.searchQuery) {
+                    filterText += ' (filtered)';
+                }
+                text = 'Showing ' + start + '-' + end + ' of ' + total + ' drivers' + filterText;
             }
             
             $('#results-count').text(text);
+        },
+
+        // Get display name for status
+        getStatusDisplayName: function(status) {
+            switch(status) {
+                case 'valid': return 'valid';
+                case 'expiring': return 'expiring soon';
+                case 'expired': return 'expired';
+                default: return 'all';
+            }
         },
 
         // Get paginated drivers for current page
@@ -498,6 +594,7 @@
             
             $.get(this.baseUrl).done(function(drivers) {
                 self.drivers = drivers;
+                self.updateStatusCounts();
                 self.filterAndRenderDrivers();
                 $('#loading-indicator').hide();
                 $('#drivers-table').show();

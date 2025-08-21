@@ -294,6 +294,95 @@
     background: #c82333;
 }
 
+/* Status Filter Buttons */
+.status-filters {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 15px;
+    flex-wrap: wrap;
+    padding: 10px 0;
+    border-top: 1px solid #e9ecef;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.status-filter-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    border: 2px solid #dee2e6;
+    border-radius: 25px;
+    background: white;
+    color: #495057;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    min-width: 100px;
+    justify-content: space-between;
+}
+
+.status-filter-btn:hover {
+    border-color: #0082c9;
+    background: #f8f9fa;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 130, 201, 0.2);
+}
+
+.status-filter-btn.active {
+    background: #0082c9;
+    color: white;
+    border-color: #0082c9;
+    box-shadow: 0 2px 8px rgba(0, 130, 201, 0.3);
+}
+
+.status-filter-btn.active:hover {
+    background: #005577;
+    border-color: #005577;
+}
+
+.filter-icon {
+    font-size: 16px;
+}
+
+.filter-count {
+    background: rgba(255, 255, 255, 0.2);
+    color: inherit;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: bold;
+    min-width: 20px;
+    text-align: center;
+}
+
+.status-filter-btn.active .filter-count {
+    background: rgba(255, 255, 255, 0.3);
+    color: white;
+}
+
+.status-filter-btn:not(.active) .filter-count {
+    background: #e9ecef;
+    color: #495057;
+}
+
+/* Specific status button styling */
+.status-filter-btn[data-status="valid"]:not(.active):hover {
+    border-color: #28a745;
+    color: #28a745;
+}
+
+.status-filter-btn[data-status="expiring"]:not(.active):hover {
+    border-color: #ffc107;
+    color: #856404;
+}
+
+.status-filter-btn[data-status="expired"]:not(.active):hover {
+    border-color: #dc3545;
+    color: #dc3545;
+}
+
 /* Results and Pagination */
 .results-info {
     display: flex;
@@ -370,6 +459,17 @@
     }
     
     .search-box {
+        min-width: auto;
+    }
+    
+    .status-filters {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+    }
+    
+    .status-filter-btn {
+        justify-content: center;
         min-width: auto;
     }
     

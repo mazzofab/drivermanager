@@ -15,6 +15,27 @@
                 <button id="test-notification-btn" class="button" style="background-color: #fd7e14; color: white; border-color: #fd7e14;" title="Send test email and push notifications (for testing purposes)">📧 Test Notifications</button>
             </div>
             
+            <!-- Status Filter Buttons -->
+            <div class="status-filters">
+                <label style="font-weight: bold; margin-right: 10px;">Filter by Status:</label>
+                <button type="button" id="filter-all" class="status-filter-btn active" data-status="all">
+                    <span class="filter-icon">📋</span> All Drivers
+                    <span class="filter-count" id="count-all">0</span>
+                </button>
+                <button type="button" id="filter-valid" class="status-filter-btn" data-status="valid">
+                    <span class="filter-icon">🟢</span> Valid
+                    <span class="filter-count" id="count-valid">0</span>
+                </button>
+                <button type="button" id="filter-expiring" class="status-filter-btn" data-status="expiring">
+                    <span class="filter-icon">🟡</span> Expiring Soon
+                    <span class="filter-count" id="count-expiring">0</span>
+                </button>
+                <button type="button" id="filter-expired" class="status-filter-btn" data-status="expired">
+                    <span class="filter-icon">🔴</span> Expired
+                    <span class="filter-count" id="count-expired">0</span>
+                </button>
+            </div>
+            
             <!-- Results Info and Pagination Controls -->
             <div class="results-info">
                 <span id="results-count">Loading...</span>
