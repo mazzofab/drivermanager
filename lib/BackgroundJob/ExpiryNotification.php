@@ -60,7 +60,27 @@ class ExpiryNotification extends TimedJob {
             return;
         }
         
-        $this->logger->info('Running driver license expiry check for ' . $today, ['app' => 'drivermanager']);
+        $this->executeNotification(false);
+    }
+
+    /**
+     * Public method for testing notifications
+     * Can be called from the controller for manual testing
+     */
+    public function runTest(): void {
+        $this->logger->info('Running test notification (manual trigger)', ['app' => 'drivermanager']);
+        $this->executeNotification(true);
+    }
+
+    /**
+     * Execute the notification logic
+     * @param bool $isTest Whether this is a test run (bypasses daily check)
+     */
+    private function executeNotification(bool $isTest = false): void {
+        $lastRunKey = 'drivermanager_last_notification_run';
+        $today = date('Y-m-d');
+        
+        $this->logger->info('Running driver license expiry check for ' . $today . ($isTest ? ' (TEST MODE)' : ''), ['app' => 'drivermanager']);
 
         try {
             // Get all drivers expiring within the next 30 days
@@ -78,19 +98,25 @@ class ExpiryNotification extends TimedJob {
                 // Send push notifications to mobile apps
                 $this->sendPushNotifications($expiringDrivers);
                 
-                // Update last run date after successful notifications
-                $this->config->setAppValue('drivermanager', $lastRunKey, $today);
-                $this->logger->info('Successfully sent email and push notifications and updated last run date', ['app' => 'drivermanager']);
+                // Update last run date after successful notifications (only if not a test)
+                if (!$isTest) {
+                    $this->config->setAppValue('drivermanager', $lastRunKey, $today);
+                }
+                
+                $this->logger->info('Successfully sent email and push notifications' . ($isTest ? ' (TEST MODE)' : '') . ' and updated last run date', ['app' => 'drivermanager']);
             } else {
                 $this->logger->info("No drivers found expiring within 30 days", ['app' => 'drivermanager']);
-                // Still update last run date even if no drivers found
-                $this->config->setAppValue('drivermanager', $lastRunKey, $today);
+                // Still update last run date even if no drivers found (only if not a test)
+                if (!$isTest) {
+                    $this->config->setAppValue('drivermanager', $lastRunKey, $today);
+                }
             }
         } catch (\Exception $e) {
             $this->logger->error(
                 'Error in driver expiry notification: ' . $e->getMessage(),
                 ['app' => 'drivermanager', 'exception' => $e]
             );
+            throw $e; // Re-throw for the controller to handle
         }
     }
 
@@ -121,6 +147,11 @@ class ExpiryNotification extends TimedJob {
                 );
                 return;
             }
+
+            $this->logger->info(
+                'Starting push notifications for ' . count($groupUsers) . ' users',
+                ['app' => 'drivermanager']
+            );
 
             // Count different urgency levels
             $expired = count(array_filter($drivers, function ($d) {
@@ -170,14 +201,23 @@ class ExpiryNotification extends TimedJob {
 
             // Send notification to each user in the group
             $sentCount = 0;
+            $failedCount = 0;
+            
             foreach ($groupUsers as $user) {
                 try {
+                    $userId = $user->getUID();
+                    $this->logger->debug(
+                        "Creating notification for user: {$userId}",
+                        ['app' => 'drivermanager']
+                    );
+                    
                     $notification = $this->notificationManager->createNotification();
                     
+                    // Set basic notification parameters
                     $notification->setApp('drivermanager')
-                        ->setUser($user->getUID())
+                        ->setUser($userId)
                         ->setDateTime(new \DateTime())
-                        ->setObject('drivers', 'expiring_' . date('Y-m-d'))
+                        ->setObject('drivers', 'expiring_' . date('Ymd_His')) // Make unique
                         ->setSubject($subject, [
                             'count' => count($drivers),
                             'expired' => $expired,
@@ -192,31 +232,27 @@ class ExpiryNotification extends TimedJob {
                         'drivers' => implode(', ', $driverNames)
                     ]);
                     
-                    // Set rich subject (for better mobile display)
+                    // Set simple rich content without complex parameters
                     $notification->setRichSubject($richMessage);
-                    $notification->setRichMessage('{message}: {drivers}', [
-                        'message' => $message,
-                        'drivers' => implode(', ', $driverNames)
-                    ]);
+                    $notification->setRichMessage($message . ': ' . implode(', ', $driverNames));
                     
-                    // Set icon (optional, will use app icon by default)
-                    $notification->setIcon($this->getNotificationIcon($expired, $critical, $urgent));
-                    
-                    // Add action to view in Driver Manager
-                    $action = $notification->createAction();
-                    $action->setLabel('view')
-                        ->setLink('/apps/drivermanager/', 'GET');
-                    $notification->addAction($action);
+                    // Set absolute link to view in Driver Manager
+                    $urlGenerator = \OC::$server->getURLGenerator();
+                    $relativeUrl = $urlGenerator->linkToRoute('drivermanager.page.index');
+                    $absoluteUrl = $urlGenerator->getAbsoluteURL($relativeUrl);
+                    $notification->setLink($absoluteUrl);
                     
                     // Send the notification
                     $this->notificationManager->notify($notification);
                     $sentCount++;
                     
-                    $this->logger->debug(
-                        "Sent push notification to user: {$user->getUID()}",
+                    $this->logger->info(
+                        "Successfully sent push notification to user: {$userId}",
                         ['app' => 'drivermanager']
                     );
+                    
                 } catch (\Exception $e) {
+                    $failedCount++;
                     $this->logger->error(
                         "Failed to send push notification to user {$user->getUID()}: " . $e->getMessage(),
                         ['app' => 'drivermanager', 'exception' => $e]
@@ -225,9 +261,10 @@ class ExpiryNotification extends TimedJob {
             }
 
             $this->logger->info(
-                "Successfully sent push notifications to {$sentCount} users for " . count($drivers) . " expiring drivers",
+                "Push notification summary: {$sentCount} sent successfully, {$failedCount} failed, for " . count($drivers) . " expiring drivers",
                 ['app' => 'drivermanager']
             );
+            
         } catch (\Exception $e) {
             $this->logger->error(
                 'Failed to send push notifications: ' . $e->getMessage(),
@@ -240,9 +277,8 @@ class ExpiryNotification extends TimedJob {
      * Get appropriate icon based on urgency
      */
     private function getNotificationIcon(int $expired, int $critical, int $urgent): string {
-        if ($expired > 0 || $critical > 0) {
-            return \OC::$server->getURLGenerator()->imagePath('drivermanager', 'app-dark.svg');
-        }
+        // Just use the default app icon that exists
+        // The app.svg file is in the img folder
         return \OC::$server->getURLGenerator()->imagePath('drivermanager', 'app.svg');
     }
 

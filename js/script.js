@@ -5,6 +5,7 @@
         this.drivers = [];
         this.filteredDrivers = [];
         this.baseUrl = OC.generateUrl('/apps/drivermanager/api/drivers');
+        this.testNotificationUrl = OC.generateUrl('/apps/drivermanager/api/test-notification');
         this.currentDate = new Date();
         this.selectedDate = null;
         
@@ -23,6 +24,10 @@
             
             $('#new-driver-btn').on('click', function() {
                 self.showForm();
+            });
+            
+            $('#test-notification-btn').on('click', function() {
+                self.testNotifications();
             });
             
             $('#cancel-btn').on('click', function() {
@@ -45,6 +50,47 @@
             this.initCustomDatePicker();
             
             this.loadDrivers();
+        },
+
+        // Test notification system
+        testNotifications: function() {
+            var self = this;
+            var $button = $('#test-notification-btn');
+            var originalText = $button.text();
+            
+            // Disable button and show loading state
+            $button.prop('disabled', true).text('Sending test...');
+            
+            $.ajax({
+                url: this.testNotificationUrl,
+                method: 'POST',
+                dataType: 'json'
+            }).done(function(response) {
+                if (response.success) {
+                    OC.Notification.showTemporary(response.message || 'Test notifications sent successfully!');
+                    
+                    // Show additional info if available
+                    if (response.timestamp) {
+                        console.log('Test notification sent at:', response.timestamp);
+                    }
+                } else {
+                    OC.Notification.showTemporary(response.message || 'Test completed');
+                }
+            }).fail(function(xhr) {
+                var errorMsg = 'Failed to send test notifications';
+                try {
+                    var response = JSON.parse(xhr.responseText);
+                    if (response.error) {
+                        errorMsg = response.error;
+                    }
+                } catch (e) {
+                    // Use default error message
+                }
+                OC.Notification.showTemporary(errorMsg);
+            }).always(function() {
+                // Re-enable button and restore text
+                $button.prop('disabled', false).text(originalText);
+            });
         },
 
         // Initialize search functionality

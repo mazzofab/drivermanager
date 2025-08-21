@@ -8,6 +8,7 @@ use OCP\AppFramework\App;
 use OCP\AppFramework\Bootstrap\IBootContext;
 use OCP\AppFramework\Bootstrap\IBootstrap;
 use OCP\AppFramework\Bootstrap\IRegistrationContext;
+use OCA\DriverManager\Notification\Notifier;
 use Psr\Log\LoggerInterface;
 
 class Application extends App implements IBootstrap {
@@ -18,7 +19,8 @@ class Application extends App implements IBootstrap {
     }
 
     public function register(IRegistrationContext $context): void {
-        // Register services, event listeners, middleware, etc.
+        // Register the notifier for handling notifications
+        $context->registerNotifierService(Notifier::class);
     }
 
     public function boot(IBootContext $context): void {

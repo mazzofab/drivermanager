@@ -12,6 +12,7 @@
                     <button type="button" id="clear-search-btn" class="clear-button" style="display: none;">✕</button>
                 </div>
                 <button id="new-driver-btn" class="button primary">Add New Driver</button>
+                <button id="test-notification-btn" class="button" style="background-color: #fd7e14; color: white; border-color: #fd7e14;" title="Send test email and push notifications (for testing purposes)">📧 Test Notifications</button>
             </div>
             
             <!-- Results Info and Pagination Controls -->
