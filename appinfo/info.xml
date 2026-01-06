@@ -10,7 +10,7 @@
     <author mail="fabrizio@fsm.co.tz">Fabrizio Mazzoni</author>
     <namespace>DriverManager</namespace>
     <category>organization</category>
-    <website>https://github.com/yourusername/nextcloud-drivermanager</website>
+    <website>https://github.com/mazzofab/drivermanager</website>
     <bugs>https://github.com/mazzofab/drivermanager/issues</bugs>
     <repository type="git">https://github.com/mazzofab/drivermanager.git</repository>
     <screenshot>https://raw.githubusercontent.com/mazzofab/drivermanager/main/screenshots/main.png</screenshot>
