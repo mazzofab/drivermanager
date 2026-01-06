@@ -5,7 +5,7 @@
     <name>Driver Manager</name>
     <summary>Manage driver information and license expiry notifications</summary>
     <description>A comprehensive app to manage driver information including license expiry tracking with automatic notifications</description>
-    <version>2.0.1</version>
+    <version>2.0.2</version>
     <licence>AGPL</licence>
     <author mail="fabrizio@fsm.co.tz">Fabrizio Mazzoni</author>
     <namespace>DriverManager</namespace>
@@ -16,7 +16,7 @@
     <screenshot>https://raw.githubusercontent.com/mazzofab/drivermanager/main/screenshots/main.png</screenshot>
     
     <dependencies>
-        <nextcloud min-version="25" max-version="31" />
+        <nextcloud min-version="25" max-version="32" />
         <php min-version="8.0" />
         <database min-version="9.6">pgsql</database>
         <database min-version="8.0">mysql</database>
