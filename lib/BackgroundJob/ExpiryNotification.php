@@ -35,7 +35,7 @@ class ExpiryNotification extends TimedJob {
         
         // Run daily at a specific time (24 hours = 86400 seconds)
         // This ensures the job only runs once per day
-        $this->setInterval(86400);
+        $this->setTimeSensitivity(\OCP\BackgroundJob\IJob::TIME_INSENSITIVE);
         
         // Initialize dependencies - use service container if not provided
         $this->mailer = $mailer ?? \OC::$server->getMailer();
@@ -50,16 +50,19 @@ class ExpiryNotification extends TimedJob {
      * @param mixed $argument
      */
     protected function run($argument): void {
-        // Check if we've already run today
         $lastRunKey = 'drivermanager_last_notification_run';
         $lastRun = $this->config->getAppValue('drivermanager', $lastRunKey, '');
         $today = date('Y-m-d');
-        
+    
         if ($lastRun === $today) {
             $this->logger->debug('Driver expiry notification already ran today, skipping', ['app' => 'drivermanager']);
             return;
         }
-        
+    
+        // Mark as run immediately so concurrent/repeated cron invocations within the same day
+        // cannot trigger a second send, even if executeNotification() throws mid-way.
+        $this->config->setAppValue('drivermanager', $lastRunKey, $today);
+    
         $this->executeNotification(false);
     }
 
