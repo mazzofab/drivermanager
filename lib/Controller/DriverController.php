@@ -20,6 +20,8 @@ use OCP\Mail\IMailer;
 use OCP\IConfig;
 use OCP\IUserManager;
 use OCP\Notification\IManager as INotificationManager;
+use OCP\IDBConnection;
+use OCP\IURLGenerator;
 
 class DriverController extends Controller {
     private DriverMapper $mapper;
@@ -31,6 +33,8 @@ class DriverController extends Controller {
     private IConfig $config;
     private IUserManager $userManager;
     private INotificationManager $notificationManager;
+    private IDBConnection $db;
+    private IURLGenerator $urlGenerator;
     private ?string $userId;
 
     public function __construct(
@@ -43,7 +47,9 @@ class DriverController extends Controller {
         IMailer $mailer,
         IConfig $config,
         IUserManager $userManager,
-        INotificationManager $notificationManager
+        INotificationManager $notificationManager,
+        IDBConnection $db,
+        IURLGenerator $urlGenerator
     ) {
         parent::__construct('drivermanager', $request);
         $this->mapper = $mapper;
@@ -55,6 +61,8 @@ class DriverController extends Controller {
         $this->config = $config;
         $this->userManager = $userManager;
         $this->notificationManager = $notificationManager;
+        $this->db = $db;
+        $this->urlGenerator = $urlGenerator;
         
         $user = $this->userSession->getUser();
         $this->userId = $user ? $user->getUID() : null;
@@ -158,7 +166,9 @@ class DriverController extends Controller {
                 $this->groupManager,
                 $this->userManager,
                 $this->logger,
-                $this->notificationManager
+                $this->notificationManager,
+                $this->db,
+                $this->urlGenerator
             );
 
             // Call the public test method instead of the protected run method
