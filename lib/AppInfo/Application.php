@@ -19,7 +19,6 @@ class Application extends App implements IBootstrap {
 
     public function register(IRegistrationContext $context): void {
         $context->registerNotifierService(Notifier::class);
-        $context->registerBackgroundJob(\OCA\DriverManager\BackgroundJob\ExpiryNotification::class);
     }
 
     public function boot(IBootContext $context): void {
