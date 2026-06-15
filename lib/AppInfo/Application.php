@@ -9,7 +9,6 @@ use OCP\AppFramework\Bootstrap\IBootContext;
 use OCP\AppFramework\Bootstrap\IBootstrap;
 use OCP\AppFramework\Bootstrap\IRegistrationContext;
 use OCA\DriverManager\Notification\Notifier;
-use Psr\Log\LoggerInterface;
 
 class Application extends App implements IBootstrap {
     public const APP_ID = 'drivermanager';
@@ -19,22 +18,10 @@ class Application extends App implements IBootstrap {
     }
 
     public function register(IRegistrationContext $context): void {
-        // Register the notifier for handling notifications
         $context->registerNotifierService(Notifier::class);
+        $context->registerBackgroundJob(\OCA\DriverManager\BackgroundJob\ExpiryNotification::class);
     }
 
     public function boot(IBootContext $context): void {
-        $context->injectFn(function () {
-            // Register the background job
-            $jobList = \OC::$server->getJobList();
-            $jobList->add(\OCA\DriverManager\BackgroundJob\ExpiryNotification::class);
-            
-            // Log registration for debugging - using the new PSR-3 logger
-            $logger = \OC::$server->get(LoggerInterface::class);
-            $logger->debug(
-                'DriverManager: ExpiryNotification job registered',
-                ['app' => self::APP_ID]
-            );
-        });
     }
 }
