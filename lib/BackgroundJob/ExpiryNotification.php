@@ -12,6 +12,8 @@ use OCP\Mail\IMailer;
 use OCP\Notification\IManager as INotificationManager;
 use Psr\Log\LoggerInterface;
 use OCP\AppFramework\Utility\ITimeFactory;
+use OCP\IDBConnection;
+use OCP\IURLGenerator;
 
 class ExpiryNotification extends TimedJob {
     private IMailer $mailer;
@@ -20,30 +22,30 @@ class ExpiryNotification extends TimedJob {
     private IUserManager $userManager;
     private LoggerInterface $logger;
     private INotificationManager $notificationManager;
+    private IDBConnection $db;
+    private IURLGenerator $urlGenerator;
 
     public function __construct(
         ITimeFactory $timeFactory,
-        ?IMailer $mailer = null,
-        ?IConfig $config = null,
-        ?IGroupManager $groupManager = null,
-        ?IUserManager $userManager = null,
-        ?LoggerInterface $logger = null,
-        ?INotificationManager $notificationManager = null
+        IMailer $mailer,
+        IConfig $config,
+        IGroupManager $groupManager,
+        IUserManager $userManager,
+        LoggerInterface $logger,
+        INotificationManager $notificationManager,
+        IDBConnection $db,
+        IURLGenerator $urlGenerator
     ) {
-        // Call parent constructor first to initialize the $time property
         parent::__construct($timeFactory);
-        
-        // Run daily at a specific time (24 hours = 86400 seconds)
-        // This ensures the job only runs once per day
         $this->setTimeSensitivity(\OCP\BackgroundJob\IJob::TIME_INSENSITIVE);
-        
-        // Initialize dependencies - use service container if not provided
-        $this->mailer = $mailer ?? \OC::$server->getMailer();
-        $this->config = $config ?? \OC::$server->getConfig();
-        $this->groupManager = $groupManager ?? \OC::$server->getGroupManager();
-        $this->userManager = $userManager ?? \OC::$server->getUserManager();
-        $this->logger = $logger ?? \OC::$server->get(LoggerInterface::class);
-        $this->notificationManager = $notificationManager ?? \OC::$server->getNotificationManager();
+        $this->mailer = $mailer;
+        $this->config = $config;
+        $this->groupManager = $groupManager;
+        $this->userManager = $userManager;
+        $this->logger = $logger;
+        $this->notificationManager = $notificationManager;
+        $this->db = $db;
+        $this->urlGenerator = $urlGenerator;
     }
 
     /**
@@ -240,9 +242,8 @@ class ExpiryNotification extends TimedJob {
                     $notification->setRichMessage($message . ': ' . implode(', ', $driverNames));
                     
                     // Set absolute link to view in Driver Manager
-                    $urlGenerator = \OC::$server->getURLGenerator();
-                    $relativeUrl = $urlGenerator->linkToRoute('drivermanager.page.index');
-                    $absoluteUrl = $urlGenerator->getAbsoluteURL($relativeUrl);
+                    $relativeUrl = $this->urlGenerator->linkToRoute('drivermanager.page.index');
+                    $absoluteUrl = $this->urlGenerator->getAbsoluteURL($relativeUrl);
                     $notification->setLink($absoluteUrl);
                     
                     // Send the notification
@@ -282,7 +283,7 @@ class ExpiryNotification extends TimedJob {
      */
     private function getDriversExpiringOrExpired(): array {
         try {
-            $connection = \OC::$server->getDatabaseConnection();
+            $connection = $this->db;
             $today = new \DateTime();
             $thirtyDaysFromNow = (new \DateTime())->add(new \DateInterval('P30D'));
             
