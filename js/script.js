@@ -1,4 +1,19 @@
 (function (OC, window, $, undefined) {
+    // Add CSRF token to all jQuery Ajax requests (required by NC34)
+    $.ajaxSetup({
+        headers: { 'requesttoken': OC.requestToken }
+    });
+    
+    // NC34 removed OC.Notification — shim to OCP\Toast if available
+    function showNotification(msg) {
+        if (window.OCP && OCP.Toast) {
+            OCP.Toast.info(msg);
+        } else if (OC.Notification && OC.Notification.showTemporary) {
+            showNotification(msg);
+        } else {
+            console.log(msg);
+        }
+    }
     'use strict';
 
     var DriverManager = function () {
@@ -131,14 +146,14 @@
                 dataType: 'json'
             }).done(function(response) {
                 if (response.success) {
-                    OC.Notification.showTemporary(response.message || 'Test notifications sent successfully!');
+                    showNotification(response.message || 'Test notifications sent successfully!');
                     
                     // Show additional info if available
                     if (response.timestamp) {
                         console.log('Test notification sent at:', response.timestamp);
                     }
                 } else {
-                    OC.Notification.showTemporary(response.message || 'Test completed');
+                    showNotification(response.message || 'Test completed');
                 }
             }).fail(function(xhr) {
                 var errorMsg = 'Failed to send test notifications';
@@ -150,7 +165,7 @@
                 } catch (e) {
                     // Use default error message
                 }
-                OC.Notification.showTemporary(errorMsg);
+                showNotification(errorMsg);
             }).always(function() {
                 // Re-enable button and restore text
                 $button.prop('disabled', false).text(originalText);
@@ -600,7 +615,7 @@
                 $('#drivers-table').show();
             }).fail(function() {
                 $('#loading-indicator').hide();
-                OC.Notification.showTemporary('Failed to load drivers');
+                showNotification('Failed to load drivers');
             });
         },
 
@@ -662,12 +677,12 @@
             var formData = this.sanitizeFormData();
             
             if (!formData.name || !formData.surname || !formData.licenseNumber || !formData.licenseExpiry) {
-                OC.Notification.showTemporary('Please fill in all fields');
+                showNotification('Please fill in all fields');
                 return;
             }
 
             if (!this.isValidDateFormat(formData.licenseExpiry)) {
-                OC.Notification.showTemporary('Please select a valid expiry date');
+                showNotification('Please select a valid expiry date');
                 return;
             }
 
@@ -685,7 +700,7 @@
             }).done(function() {
                 self.hideForm();
                 self.loadDrivers();
-                OC.Notification.showTemporary('Driver saved successfully');
+                showNotification('Driver saved successfully');
             }).fail(function(xhr) {
                 var errorMsg = 'Error saving driver';
                 try {
@@ -696,7 +711,7 @@
                 } catch (e) {
                     // Use default error message
                 }
-                OC.Notification.showTemporary(errorMsg);
+                showNotification(errorMsg);
             });
         },
 
@@ -707,9 +722,9 @@
                 method: 'DELETE'
             }).done(function() {
                 self.loadDrivers();
-                OC.Notification.showTemporary('Driver deleted successfully');
+                showNotification('Driver deleted successfully');
             }).fail(function() {
-                OC.Notification.showTemporary('Error deleting driver');
+                showNotification('Error deleting driver');
             });
         }
     };
