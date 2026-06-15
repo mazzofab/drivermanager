@@ -1,9 +1,3 @@
-<?php
-vendor_script('drivermanager', 'jquery.min');
-script('drivermanager', 'script');
-style('drivermanager', 'style');
-?>
-
 <div id="app">
     <div id="app-content">
         <div id="app-content-wrapper">
