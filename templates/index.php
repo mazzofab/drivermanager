@@ -1,4 +1,5 @@
 <?php
+vendor_script('drivermanager', 'jquery.min');
 script('drivermanager', 'script');
 style('drivermanager', 'style');
 ?>
