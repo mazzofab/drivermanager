@@ -10,6 +10,7 @@ use OCP\AppFramework\Http\Attribute\NoCSRFRequired;
 use OCP\AppFramework\Http\TemplateResponse;
 use OCP\IRequest;
 use OCP\IUserSession;
+use OCP\Util;
 
 class PageController extends Controller {
     private IUserSession $userSession;
@@ -29,6 +30,9 @@ class PageController extends Controller {
     #[NoAdminRequired]
     #[NoCSRFRequired]
     public function index(): TemplateResponse {
+        Util::addScript('drivermanager', 'vendor/jquery.min');
+        Util::addScript('drivermanager', 'script');
+        Util::addStyle('drivermanager', 'style');
         return new TemplateResponse('drivermanager', 'index');
     }
 }
