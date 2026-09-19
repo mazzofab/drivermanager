@@ -5,6 +5,7 @@ namespace OCA\DriverManager\Notification;
 
 use OCP\Notification\INotification;
 use OCP\Notification\INotifier;
+use OCP\Notification\UnknownNotificationException;
 use OCP\IURLGenerator;
 use OCP\L10N\IFactory;
 
@@ -37,7 +38,12 @@ class Notifier implements INotifier {
      */
     public function prepare(INotification $notification, string $languageCode): INotification {
         if ($notification->getApp() !== 'drivermanager') {
-            // Not our app, so we don't handle this notification
+            // Not our app, so we don't handle this notification.
+            // UnknownNotificationException only exists on Nextcloud 27+, and this
+            // app still supports 25/26, so fall back to InvalidArgumentException there.
+            if (class_exists(UnknownNotificationException::class)) {
+                throw new UnknownNotificationException();
+            }
             throw new \InvalidArgumentException();
         }
 
